@@ -22,8 +22,12 @@ import Modal from '../../components/common/Modal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 
 export default function InquiriesPage() {
-  const { inquiries, addInquiry, updateInquiry, updateInquiryStatus, deleteInquiry } = useAdminData();
+  const { inquiries, fetchInquiries, addInquiry, updateInquiry, updateInquiryStatus, deleteInquiry } = useAdminData();
   const { showToast } = useToast();
+
+  React.useEffect(() => {
+    fetchInquiries?.();
+  }, [fetchInquiries]);
 
   const [selectedInquiry, setSelectedInquiry] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);

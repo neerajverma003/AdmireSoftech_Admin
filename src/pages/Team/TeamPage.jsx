@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Plus,
@@ -36,8 +36,12 @@ const TwitterIcon = ({ className }) => (
 );
 
 export default function TeamPage() {
-  const { team, addTeamMember, updateTeamMember, deleteTeamMember } = useAdminData();
+  const { team, fetchTeam, addTeamMember, updateTeamMember, deleteTeamMember } = useAdminData();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    fetchTeam?.();
+  }, [fetchTeam]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
@@ -84,7 +88,7 @@ export default function TeamPage() {
       experience: mem.experience || '5+ Years Exp',
       bio: mem.bio || '',
       specialtiesText: Array.isArray(mem.specialties) ? mem.specialties.join(', ') : '',
-      avatarImg: mem.avatarImg || '',
+      avatarImg: mem.avatarImg || mem.avatar || '',
       linkedin: mem.social?.linkedin || '',
       github: mem.social?.github || '',
       twitter: mem.social?.twitter || '',
@@ -93,45 +97,55 @@ export default function TeamPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.role) {
-      showToast({ title: 'Error', message: 'Name and Role are required', type: 'error' });
+    if (!formData.name.trim() || !formData.role.trim()) {
+      showToast({ title: 'Validation Error', message: 'Name and Role are required.', type: 'error' });
       return;
     }
 
     const payload = {
-      name: formData.name,
-      role: formData.role,
-      department: formData.department,
-      experience: formData.experience,
-      bio: formData.bio,
-      specialties: formData.specialtiesText.split(',').map((s) => s.trim()).filter(Boolean),
-      avatarImg: formData.avatarImg,
+      name: formData.name.trim(),
+      role: formData.role.trim(),
+      department: formData.department.trim() || 'Engineering',
+      experience: formData.experience.trim() || '5+ Years Exp',
+      bio: formData.bio.trim(),
+      specialties: formData.specialtiesText ? formData.specialtiesText.split(',').map((s) => s.trim()).filter(Boolean) : [],
+      avatarImg: formData.avatarImg.trim(),
       social: {
-        linkedin: formData.linkedin,
-        github: formData.github,
-        twitter: formData.twitter,
+        linkedin: formData.linkedin.trim(),
+        github: formData.github.trim(),
+        twitter: formData.twitter.trim(),
       },
       isFeatured: formData.isFeatured,
     };
 
-    if (editingMember) {
-      updateTeamMember(editingMember.id, payload);
-      showToast({ title: 'Updated', message: `${formData.name}'s profile updated.`, type: 'success' });
-    } else {
-      addTeamMember(payload);
-      showToast({ title: 'Created', message: `Added ${formData.name} to team directory.`, type: 'success' });
+    try {
+      if (editingMember) {
+        await updateTeamMember(editingMember._id || editingMember.id, payload);
+        showToast({ title: 'Updated', message: `${formData.name}'s profile updated.`, type: 'success' });
+      } else {
+        await addTeamMember(payload);
+        showToast({ title: 'Created', message: `Added ${formData.name} to team directory.`, type: 'success' });
+      }
+      setIsModalOpen(false);
+      await fetchTeam?.();
+    } catch (err) {
+      showToast({ title: 'Save Failed', message: err.message || 'Failed to save team member.', type: 'error' });
     }
-
-    setIsModalOpen(false);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteMemberId) {
-      deleteTeamMember(deleteMemberId);
-      setDeleteMemberId(null);
-      showToast({ title: 'Removed', message: 'Team member profile removed.', type: 'warning' });
+      try {
+        await deleteTeamMember(deleteMemberId);
+        showToast({ title: 'Removed', message: 'Team member profile removed.', type: 'warning' });
+        await fetchTeam?.();
+      } catch (err) {
+        showToast({ title: 'Delete Failed', message: err.message, type: 'error' });
+      } finally {
+        setDeleteMemberId(null);
+      }
     }
   };
 
@@ -190,7 +204,7 @@ export default function TeamPage() {
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => setDeleteMemberId(mem.id)}
+                  onClick={() => setDeleteMemberId(mem._id || mem.id)}
                   className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
                   title="Delete Profile"
                 >

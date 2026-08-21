@@ -12,6 +12,7 @@ import {
   initialCompanySettings,
   initialStats,
 } from '../data/seedData';
+import { apiRequest } from '../api/client';
 
 const AdminDataContext = createContext(null);
 
@@ -41,15 +42,33 @@ function loadStoredData(key, fallback) {
 
 export const AdminDataProvider = ({ children }) => {
   // State variables with LocalStorage persistence
-  const [inquiries, setInquiries] = useState(() => loadStoredData(STORAGE_KEYS.INQUIRIES, initialInquiries));
-  const [quotes, setQuotes] = useState(() => loadStoredData(STORAGE_KEYS.QUOTES, initialQuotes));
+  const [inquiries, setInquiries] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.INQUIRIES, []);
+    return Array.isArray(stored) ? stored.filter((i) => !i.id?.startsWith('inq-10')) : [];
+  });
+  const [quotes, setQuotes] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.QUOTES, []);
+    return Array.isArray(stored) ? stored.filter((q) => !q.id?.startsWith('qt-20')) : [];
+  });
   const [jobs, setJobs] = useState(() => loadStoredData(STORAGE_KEYS.JOBS, initialJobs));
   const [applicants, setApplicants] = useState(() => loadStoredData(STORAGE_KEYS.APPLICANTS, initialApplicants));
   const [freelance, setFreelance] = useState(() => loadStoredData(STORAGE_KEYS.FREELANCE, initialFreelance));
-  const [services, setServices] = useState(() => loadStoredData(STORAGE_KEYS.SERVICES, initialServices));
-  const [team, setTeam] = useState(() => loadStoredData(STORAGE_KEYS.TEAM, initialTeam));
-  const [testimonials, setTestimonials] = useState(() => loadStoredData(STORAGE_KEYS.TESTIMONIALS, initialTestimonials));
-  const [faqs, setFaqs] = useState(() => loadStoredData(STORAGE_KEYS.FAQS, initialFaqs));
+  const [services, setServices] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.SERVICES, []);
+    return Array.isArray(stored) ? stored.filter((s) => !s.id?.startsWith('svc-')) : [];
+  });
+  const [team, setTeam] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.TEAM, []);
+    return Array.isArray(stored) ? stored.filter((t) => !t.id?.startsWith('team-') && !t.id?.startsWith('allen-')) : [];
+  });
+  const [testimonials, setTestimonials] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.TESTIMONIALS, []);
+    return Array.isArray(stored) ? stored.filter((t) => !t.id?.startsWith('rev-')) : [];
+  });
+  const [faqs, setFaqs] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.FAQS, []);
+    return Array.isArray(stored) ? stored.filter((f) => !f.id?.startsWith('faq-')) : [];
+  });
   const [settings, setSettings] = useState(() => loadStoredData(STORAGE_KEYS.SETTINGS, initialCompanySettings));
   const [stats, setStats] = useState(() => loadStoredData(STORAGE_KEYS.STATS, initialStats));
 
@@ -123,57 +142,159 @@ export const AdminDataProvider = ({ children }) => {
     } catch {}
   }, [stats]);
 
+  // Fetch inquiries from backend on mount
+  const fetchInquiries = useCallback(async () => {
+    try {
+      const res = await apiRequest('/inquiries');
+      if (res && res.inquiries) {
+        const mapped = res.inquiries.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setInquiries(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch inquiries from backend, using local state:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInquiries();
+  }, [fetchInquiries]);
+
   // ================= CRUD: INQUIRIES =================
-  const addInquiry = useCallback((inquiryData) => {
-    const newInquiry = {
-      id: `inq-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      status: 'New',
-      priority: 'Medium',
-      notes: '',
-      ...inquiryData,
-    };
-    setInquiries((prev) => [newInquiry, ...prev]);
-    return newInquiry;
+  const addInquiry = useCallback(async (inquiryData) => {
+    try {
+      const res = await apiRequest('/inquiries', {
+        method: 'POST',
+        body: JSON.stringify(inquiryData),
+      });
+      const created = res?.inquiry
+        ? { ...res.inquiry, id: res.inquiry._id }
+        : { id: `inq-${Date.now()}`, createdAt: new Date().toISOString(), status: 'New', priority: 'Medium', notes: '', ...inquiryData };
+      setInquiries((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      const fallback = {
+        id: `inq-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        status: 'New',
+        priority: 'Medium',
+        notes: '',
+        ...inquiryData,
+      };
+      setInquiries((prev) => [fallback, ...prev]);
+      return fallback;
+    }
   }, []);
 
-  const updateInquiry = useCallback((id, updatedFields) => {
+  const updateInquiry = useCallback(async (id, updatedFields) => {
     setInquiries((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+      prev.map((item) => (item.id === id || item._id === id ? { ...item, ...updatedFields } : item))
     );
+    try {
+      await apiRequest(`/inquiries/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedFields),
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend inquiry update failed:', e.message);
+    }
   }, []);
 
-  const updateInquiryStatus = useCallback((id, status) => {
+  const updateInquiryStatus = useCallback(async (id, status) => {
     setInquiries((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status } : item))
+      prev.map((item) => (item.id === id || item._id === id ? { ...item, status } : item))
     );
+    try {
+      await apiRequest(`/inquiries/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend inquiry status update failed:', e.message);
+    }
   }, []);
 
-  const deleteInquiry = useCallback((id) => {
-    setInquiries((prev) => prev.filter((item) => item.id !== id));
+  const deleteInquiry = useCallback(async (id) => {
+    setInquiries((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    try {
+      await apiRequest(`/inquiries/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend inquiry delete failed:', e.message);
+    }
   }, []);
+
+  // Fetch quotes from backend on mount
+  const fetchQuotes = useCallback(async () => {
+    try {
+      const res = await apiRequest('/quotes');
+      if (res && res.quotes) {
+        const mapped = res.quotes.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setQuotes(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch quotes from backend:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchQuotes();
+  }, [fetchQuotes]);
 
   // ================= CRUD: QUOTES =================
-  const addQuote = useCallback((quoteData) => {
-    const newQuote = {
-      id: `qt-${Date.now()}`,
-      submittedAt: new Date().toISOString(),
-      status: 'Pending Review',
-      urgency: 'Medium',
-      ...quoteData,
-    };
-    setQuotes((prev) => [newQuote, ...prev]);
-    return newQuote;
+  const addQuote = useCallback(async (quoteData) => {
+    try {
+      const res = await apiRequest('/quotes', {
+        method: 'POST',
+        body: JSON.stringify(quoteData),
+      });
+      const created = res?.quote
+        ? { ...res.quote, id: res.quote._id }
+        : { id: `qt-${Date.now()}`, submittedAt: new Date().toISOString(), status: 'Pending Review', urgency: 'Medium', ...quoteData };
+      setQuotes((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      const fallback = {
+        id: `qt-${Date.now()}`,
+        submittedAt: new Date().toISOString(),
+        status: 'Pending Review',
+        urgency: 'Medium',
+        ...quoteData,
+      };
+      setQuotes((prev) => [fallback, ...prev]);
+      return fallback;
+    }
   }, []);
 
-  const updateQuote = useCallback((id, updatedFields) => {
+  const updateQuote = useCallback(async (id, updatedFields) => {
     setQuotes((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+      prev.map((item) => (item.id === id || item._id === id ? { ...item, ...updatedFields } : item))
     );
+    try {
+      await apiRequest(`/quotes/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedFields),
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend quote update failed:', e.message);
+    }
   }, []);
 
-  const deleteQuote = useCallback((id) => {
-    setQuotes((prev) => prev.filter((item) => item.id !== id));
+  const deleteQuote = useCallback(async (id) => {
+    setQuotes((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    try {
+      await apiRequest(`/quotes/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend quote delete failed:', e.message);
+    }
   }, []);
 
   // ================= CRUD: JOBS =================
@@ -275,95 +396,364 @@ export const AdminDataProvider = ({ children }) => {
     setFreelance((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
+  // Fetch services from backend on mount
+  const fetchServices = useCallback(async () => {
+    try {
+      const res = await apiRequest('/services?includeInactive=true');
+      if (res && res.services) {
+        const mapped = res.services.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setServices(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch services from backend:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
+
   // ================= CRUD: SERVICES =================
-  const addService = useCallback((serviceData) => {
-    const newService = {
-      id: `svc-${Date.now()}`,
-      features: [],
-      tags: [],
-      badge: 'New',
-      ...serviceData,
-    };
-    setServices((prev) => [newService, ...prev]);
-    return newService;
+  const addService = useCallback(async (serviceData) => {
+    try {
+      const res = await apiRequest('/services', {
+        method: 'POST',
+        body: JSON.stringify(serviceData),
+      });
+      if (!res || !res.service) {
+        throw new Error(res?.message || 'Failed to create service in database');
+      }
+      const created = { ...res.service, id: res.service._id };
+      setServices((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      console.error('[Admin Data] Add service failed:', e);
+      throw e;
+    }
   }, []);
 
-  const updateService = useCallback((id, updatedFields) => {
-    setServices((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
-    );
+  const updateService = useCallback(async (id, updatedFields) => {
+    try {
+      let res;
+      // If updating an unsaved item that starts with svc-, POST it to MongoDB
+      if (typeof id === 'string' && id.startsWith('svc-')) {
+        res = await apiRequest('/services', {
+          method: 'POST',
+          body: JSON.stringify(updatedFields),
+        });
+      } else {
+        res = await apiRequest(`/services/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updatedFields),
+        });
+      }
+
+      if (!res || !res.service) {
+        throw new Error(res?.message || 'Failed to update service in database');
+      }
+
+      const updated = { ...res.service, id: res.service._id };
+      setServices((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? updated : item))
+      );
+      return updated;
+    } catch (e) {
+      console.error('[Admin Data] Backend service update failed:', e);
+      throw e;
+    }
   }, []);
 
-  const deleteService = useCallback((id) => {
-    setServices((prev) => prev.filter((item) => item.id !== id));
+  const deleteService = useCallback(async (id) => {
+    setServices((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    if (typeof id === 'string' && id.startsWith('svc-')) return;
+    try {
+      await apiRequest(`/services/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend service delete failed:', e.message);
+      throw e;
+    }
   }, []);
+
+  // Fetch team from backend on mount
+  const fetchTeam = useCallback(async () => {
+    try {
+      const res = await apiRequest('/team?includeInactive=true');
+      if (res && res.team) {
+        const mapped = res.team.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setTeam(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch team from backend:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTeam();
+  }, [fetchTeam]);
 
   // ================= CRUD: TEAM =================
-  const addTeamMember = useCallback((memberData) => {
-    const newMember = {
-      id: `team-${Date.now()}`,
-      socials: { linkedin: '#', github: '#', twitter: '#' },
-      specialties: [],
-      ...memberData,
-    };
-    setTeam((prev) => [newMember, ...prev]);
-    return newMember;
+  const addTeamMember = useCallback(async (memberData) => {
+    try {
+      const res = await apiRequest('/team', {
+        method: 'POST',
+        body: JSON.stringify(memberData),
+      });
+      if (!res || !res.member) {
+        throw new Error(res?.message || 'Failed to create team member in database');
+      }
+      const created = { ...res.member, id: res.member._id || res.member.id };
+      setTeam((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      console.error('[Admin Data] Add team member failed:', e);
+      throw e;
+    }
   }, []);
 
-  const updateTeamMember = useCallback((id, updatedFields) => {
+  const updateTeamMember = useCallback(async (id, updatedFields) => {
+    try {
+      const target = team.find((t) => t.id === id || t._id === id);
+      const mongoId = target?._id || (typeof id === 'string' && !id.startsWith('team-') && !id.startsWith('allen-') ? id : null);
+
+      let res;
+      if (mongoId) {
+        res = await apiRequest(`/team/${mongoId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updatedFields),
+        });
+      } else {
+        res = await apiRequest('/team', {
+          method: 'POST',
+          body: JSON.stringify(updatedFields),
+        });
+      }
+
+      if (!res || !res.member) {
+        throw new Error(res?.message || 'Failed to update team member in database');
+      }
+
+      const updated = { ...res.member, id: res.member._id || res.member.id };
+      setTeam((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? updated : item))
+      );
+      return updated;
+    } catch (e) {
+      console.error('[Admin Data] Backend team member update failed:', e);
+      throw e;
+    }
+  }, [team]);
+
+  const deleteTeamMember = useCallback(async (id) => {
+    const target = team.find((t) => t.id === id || t._id === id);
+    const mongoId = target?._id || target?.id || id;
+
     setTeam((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+      prev.filter((item) => item.id !== id && item._id !== id && item.id !== mongoId && item._id !== mongoId)
     );
+
+    if (mongoId && !mongoId.toString().startsWith('team-') && !mongoId.toString().startsWith('allen-')) {
+      try {
+        await apiRequest(`/team/${mongoId}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('[Admin Data] Backend team delete failed:', e.message);
+        throw e;
+      }
+    }
+  }, [team]);
+
+  // Fetch testimonials from backend on mount
+  const fetchTestimonials = useCallback(async () => {
+    try {
+      const res = await apiRequest('/testimonials?includeUnapproved=true');
+      if (res && res.testimonials) {
+        const mapped = res.testimonials.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setTestimonials(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch testimonials from backend:', e.message);
+    }
   }, []);
 
-  const deleteTeamMember = useCallback((id) => {
-    setTeam((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  useEffect(() => {
+    fetchTestimonials();
+  }, [fetchTestimonials]);
 
   // ================= CRUD: TESTIMONIALS =================
-  const addTestimonial = useCallback((testimonialData) => {
-    const newReview = {
-      id: `rev-${Date.now()}`,
-      rating: 5,
-      isApproved: true,
-      isFeatured: false,
-      date: new Date().toISOString().split('T')[0],
-      ...testimonialData,
-    };
-    setTestimonials((prev) => [newReview, ...prev]);
-    return newReview;
+  const addTestimonial = useCallback(async (testimonialData) => {
+    try {
+      const res = await apiRequest('/testimonials', {
+        method: 'POST',
+        body: JSON.stringify(testimonialData),
+      });
+      if (!res || !res.testimonial) {
+        throw new Error(res?.message || 'Failed to create testimonial in database');
+      }
+      const created = { ...res.testimonial, id: res.testimonial._id || res.testimonial.id };
+      setTestimonials((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      console.error('[Admin Data] Add testimonial failed:', e);
+      throw e;
+    }
   }, []);
 
-  const updateTestimonial = useCallback((id, updatedFields) => {
+  const updateTestimonial = useCallback(async (id, updatedFields) => {
+    try {
+      const target = testimonials.find((t) => t.id === id || t._id === id);
+      const mongoId = target?._id || (typeof id === 'string' && !id.startsWith('rev-') ? id : null);
+
+      let res;
+      if (mongoId) {
+        res = await apiRequest(`/testimonials/${mongoId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updatedFields),
+        });
+      } else {
+        res = await apiRequest('/testimonials', {
+          method: 'POST',
+          body: JSON.stringify(updatedFields),
+        });
+      }
+
+      if (!res || !res.testimonial) {
+        throw new Error(res?.message || 'Failed to update testimonial in database');
+      }
+
+      const updated = { ...res.testimonial, id: res.testimonial._id || res.testimonial.id };
+      setTestimonials((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? updated : item))
+      );
+      return updated;
+    } catch (e) {
+      console.error('[Admin Data] Backend testimonial update failed:', e);
+      throw e;
+    }
+  }, [testimonials]);
+
+  const deleteTestimonial = useCallback(async (id) => {
+    const target = testimonials.find((t) => t.id === id || t._id === id);
+    const mongoId = target?._id || target?.id || id;
+
     setTestimonials((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+      prev.filter((item) => item.id !== id && item._id !== id && item.id !== mongoId && item._id !== mongoId)
     );
+
+    if (mongoId && !mongoId.toString().startsWith('rev-')) {
+      try {
+        await apiRequest(`/testimonials/${mongoId}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('[Admin Data] Backend testimonial delete failed:', e.message);
+        throw e;
+      }
+    }
+  }, [testimonials]);
+
+  // Fetch FAQs from backend on mount
+  const fetchFaqs = useCallback(async () => {
+    try {
+      const res = await apiRequest('/faqs?includeInactive=true');
+      if (res && res.faqs) {
+        const mapped = res.faqs.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setFaqs(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch FAQs from backend:', e.message);
+    }
   }, []);
 
-  const deleteTestimonial = useCallback((id) => {
-    setTestimonials((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  useEffect(() => {
+    fetchFaqs();
+  }, [fetchFaqs]);
 
   // ================= CRUD: FAQS =================
-  const addFaq = useCallback((faqData) => {
-    const newFaq = {
-      id: `faq-${Date.now()}`,
-      category: 'General',
-      ...faqData,
-    };
-    setFaqs((prev) => [...prev, newFaq]);
-    return newFaq;
+  const addFaq = useCallback(async (faqData) => {
+    try {
+      const res = await apiRequest('/faqs', {
+        method: 'POST',
+        body: JSON.stringify(faqData),
+      });
+      if (!res || !res.faq) {
+        throw new Error(res?.message || 'Failed to create FAQ in database');
+      }
+      const created = { ...res.faq, id: res.faq._id || res.faq.id };
+      setFaqs((prev) => [...prev, created]);
+      return created;
+    } catch (e) {
+      console.error('[Admin Data] Add FAQ failed:', e);
+      throw e;
+    }
   }, []);
 
-  const updateFaq = useCallback((id, updatedFields) => {
+  const updateFaq = useCallback(async (id, updatedFields) => {
+    try {
+      const target = faqs.find((f) => f.id === id || f._id === id);
+      const mongoId = target?._id || (typeof id === 'string' && !id.startsWith('faq-') ? id : null);
+
+      let res;
+      if (mongoId) {
+        res = await apiRequest(`/faqs/${mongoId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updatedFields),
+        });
+      } else {
+        res = await apiRequest('/faqs', {
+          method: 'POST',
+          body: JSON.stringify(updatedFields),
+        });
+      }
+
+      if (!res || !res.faq) {
+        throw new Error(res?.message || 'Failed to update FAQ in database');
+      }
+
+      const updated = { ...res.faq, id: res.faq._id || res.faq.id };
+      setFaqs((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? updated : item))
+      );
+      return updated;
+    } catch (e) {
+      console.error('[Admin Data] Backend FAQ update failed:', e);
+      throw e;
+    }
+  }, [faqs]);
+
+  const deleteFaq = useCallback(async (id) => {
+    const target = faqs.find((f) => f.id === id || f._id === id);
+    const mongoId = target?._id || target?.id || id;
+
     setFaqs((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+      prev.filter((item) => item.id !== id && item._id !== id && item.id !== mongoId && item._id !== mongoId)
     );
-  }, []);
 
-  const deleteFaq = useCallback((id) => {
-    setFaqs((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+    if (mongoId && !mongoId.toString().startsWith('faq-')) {
+      try {
+        await apiRequest(`/faqs/${mongoId}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('[Admin Data] Backend FAQ delete failed:', e.message);
+        throw e;
+      }
+    }
+  }, [faqs]);
 
   // ================= SETTINGS & STATS =================
   const updateSettings = useCallback((updatedFields) => {
@@ -432,12 +822,14 @@ export const AdminDataProvider = ({ children }) => {
       setGlobalSearch,
 
       // Inquiries Actions
+      fetchInquiries,
       addInquiry,
       updateInquiry,
       updateInquiryStatus,
       deleteInquiry,
 
       // Quotes Actions
+      fetchQuotes,
       addQuote,
       updateQuote,
       deleteQuote,
@@ -461,21 +853,25 @@ export const AdminDataProvider = ({ children }) => {
       deleteFreelance,
 
       // Services Actions
+      fetchServices,
       addService,
       updateService,
       deleteService,
 
       // Team Actions
+      fetchTeam,
       addTeamMember,
       updateTeamMember,
       deleteTeamMember,
 
       // Testimonials Actions
+      fetchTestimonials,
       addTestimonial,
       updateTestimonial,
       deleteTestimonial,
 
       // FAQs Actions
+      fetchFaqs,
       addFaq,
       updateFaq,
       deleteFaq,
@@ -499,10 +895,12 @@ export const AdminDataProvider = ({ children }) => {
       stats,
       summaryCounts,
       globalSearch,
+      fetchInquiries,
       addInquiry,
       updateInquiry,
       updateInquiryStatus,
       deleteInquiry,
+      fetchQuotes,
       addQuote,
       updateQuote,
       deleteQuote,
@@ -518,15 +916,19 @@ export const AdminDataProvider = ({ children }) => {
       updateFreelance,
       toggleFreelanceStatus,
       deleteFreelance,
+      fetchServices,
       addService,
       updateService,
       deleteService,
+      fetchTeam,
       addTeamMember,
       updateTeamMember,
       deleteTeamMember,
+      fetchTestimonials,
       addTestimonial,
       updateTestimonial,
       deleteTestimonial,
+      fetchFaqs,
       addFaq,
       updateFaq,
       deleteFaq,

@@ -20,8 +20,12 @@ import Modal from '../../components/common/Modal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 
 export default function ServicesPage() {
-  const { services, addService, updateService, deleteService } = useAdminData();
+  const { services, fetchServices, addService, updateService, deleteService } = useAdminData();
   const { showToast } = useToast();
+
+  React.useEffect(() => {
+    fetchServices?.();
+  }, [fetchServices]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
@@ -68,40 +72,58 @@ export default function ServicesPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.title) {
-      showToast({ title: 'Error', message: 'Service title is required', type: 'error' });
+    if (!formData.title?.trim()) {
+      showToast({ title: 'Validation Error', message: 'Service title is required.', type: 'error' });
       return;
     }
 
+    const serviceTitle = formData.title.trim();
+    const serviceDesc = formData.description?.trim() || `${serviceTitle} engineering and consulting services.`;
+
     const payload = {
-      title: formData.title,
-      category: formData.category,
-      badge: formData.badge,
-      color: formData.color,
-      description: formData.description,
-      fullDescription: formData.fullDescription,
-      features: formData.featuresText.split('\n').map((f) => f.trim()).filter(Boolean),
-      techStack: formData.techStackText.split(',').map((t) => t.trim()).filter(Boolean),
+      title: serviceTitle,
+      category: formData.category || 'Cloud',
+      badge: formData.badge || 'Popular',
+      color: formData.color || 'from-blue-500 to-cyan-400',
+      description: serviceDesc,
+      fullDescription: formData.fullDescription?.trim() || serviceDesc,
+      features: formData.featuresText
+        ? formData.featuresText.split('\n').map((f) => f.trim()).filter(Boolean)
+        : [],
+      techStack: formData.techStackText
+        ? formData.techStackText.split(',').map((t) => t.trim()).filter(Boolean)
+        : [],
+      isActive: true,
     };
 
-    if (editingService) {
-      updateService(editingService.id, payload);
-      showToast({ title: 'Updated', message: 'Service catalog updated.', type: 'success' });
-    } else {
-      addService(payload);
-      showToast({ title: 'Created', message: 'New practice area added.', type: 'success' });
+    try {
+      if (editingService) {
+        await updateService(editingService.id || editingService._id, payload);
+        showToast({ title: 'Updated', message: `"${serviceTitle}" updated successfully.`, type: 'success' });
+      } else {
+        await addService(payload);
+        showToast({ title: 'Created', message: `"${serviceTitle}" added to services catalog!`, type: 'success' });
+      }
+      setIsModalOpen(false);
+      await fetchServices?.();
+    } catch (err) {
+      showToast({ title: 'Save Failed', message: err.message || 'Could not save service.', type: 'error' });
     }
-
-    setIsModalOpen(false);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteServiceId) {
-      deleteService(deleteServiceId);
-      setDeleteServiceId(null);
-      showToast({ title: 'Deleted', message: 'Service practice area removed.', type: 'warning' });
+      try {
+        await deleteService(deleteServiceId);
+        showToast({ title: 'Deleted', message: 'Service practice area removed.', type: 'warning' });
+        await fetchServices?.();
+      } catch (err) {
+        showToast({ title: 'Delete Failed', message: err.message, type: 'error' });
+      } finally {
+        setDeleteServiceId(null);
+      }
     }
   };
 

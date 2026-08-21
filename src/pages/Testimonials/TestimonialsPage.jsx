@@ -16,8 +16,12 @@ import Modal from '../../components/common/Modal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 
 export default function TestimonialsPage() {
-  const { testimonials, addTestimonial, updateTestimonial, deleteTestimonial } = useAdminData();
+  const { testimonials, fetchTestimonials, addTestimonial, updateTestimonial, deleteTestimonial } = useAdminData();
   const { showToast } = useToast();
+
+  React.useEffect(() => {
+    fetchTestimonials?.();
+  }, [fetchTestimonials]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingReview, setEditingReview] = useState(null);
@@ -30,6 +34,7 @@ export default function TestimonialsPage() {
     category: 'Cloud & DevOps',
     rating: 5,
     content: '',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80',
     isApproved: true,
     isFeatured: true,
   });
@@ -43,6 +48,7 @@ export default function TestimonialsPage() {
       category: 'Cloud & DevOps',
       rating: 5,
       content: '',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80',
       isApproved: true,
       isFeatured: true,
     });
@@ -57,45 +63,71 @@ export default function TestimonialsPage() {
       company: rev.company || '',
       category: rev.category || 'Cloud & DevOps',
       rating: rev.rating || 5,
-      content: rev.content || '',
+      content: rev.content || rev.quote || '',
+      avatar: rev.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80',
       isApproved: Boolean(rev.isApproved),
       isFeatured: Boolean(rev.isFeatured),
     });
     setIsModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.author || !formData.content) {
-      showToast({ title: 'Error', message: 'Author and Review content are required', type: 'error' });
+    if (!formData.author?.trim() || !formData.content?.trim()) {
+      showToast({ title: 'Validation Error', message: 'Author name and review content are required.', type: 'error' });
       return;
     }
 
-    if (editingReview) {
-      updateTestimonial(editingReview.id, formData);
-      showToast({ title: 'Updated', message: 'Testimonial updated.', type: 'success' });
-    } else {
-      addTestimonial(formData);
-      showToast({ title: 'Created', message: 'Client review added.', type: 'success' });
+    const payload = {
+      ...formData,
+      author: formData.author.trim(),
+      role: formData.role.trim(),
+      company: formData.company.trim(),
+      content: formData.content.trim(),
+      avatar: formData.avatar?.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80',
+    };
+
+    try {
+      if (editingReview) {
+        await updateTestimonial(editingReview.id || editingReview._id, payload);
+        showToast({ title: 'Updated', message: `Testimonial from "${formData.author}" updated.`, type: 'success' });
+      } else {
+        await addTestimonial(payload);
+        showToast({ title: 'Created', message: `New testimonial from "${formData.author}" added!`, type: 'success' });
+      }
+      setIsModalOpen(false);
+      await fetchTestimonials?.();
+    } catch (err) {
+      showToast({ title: 'Save Failed', message: err.message || 'Failed to save testimonial.', type: 'error' });
     }
-
-    setIsModalOpen(false);
   };
 
-  const handleToggleApproved = (rev) => {
-    updateTestimonial(rev.id, { isApproved: !rev.isApproved });
-    showToast({
-      title: 'Status Updated',
-      message: `Review marked as ${!rev.isApproved ? 'Approved' : 'Pending'}.`,
-      type: 'info',
-    });
+  const handleToggleApproved = async (rev) => {
+    try {
+      const nextStatus = !rev.isApproved;
+      await updateTestimonial(rev.id || rev._id, { isApproved: nextStatus });
+      showToast({
+        title: 'Status Updated',
+        message: `Review marked as ${nextStatus ? 'Approved' : 'Pending'}.`,
+        type: 'info',
+      });
+      await fetchTestimonials?.();
+    } catch (err) {
+      showToast({ title: 'Update Failed', message: err.message, type: 'error' });
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteReviewId) {
-      deleteTestimonial(deleteReviewId);
-      setDeleteReviewId(null);
-      showToast({ title: 'Deleted', message: 'Testimonial removed.', type: 'warning' });
+      try {
+        await deleteTestimonial(deleteReviewId);
+        showToast({ title: 'Deleted', message: 'Testimonial removed.', type: 'warning' });
+        await fetchTestimonials?.();
+      } catch (err) {
+        showToast({ title: 'Delete Failed', message: err.message, type: 'error' });
+      } finally {
+        setDeleteReviewId(null);
+      }
     }
   };
 
@@ -106,7 +138,7 @@ export default function TestimonialsPage() {
         <div>
           <h2 className="text-xl font-bold text-slate-100">Client Reviews & Testimonials</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Moderate enterprise endorsements, 5-star ratings, and featured homepage quotes
+            Moderate enterprise endorsements, 5-star ratings, avatar headshots, and featured homepage quotes
           </p>
         </div>
 
@@ -123,7 +155,7 @@ export default function TestimonialsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {testimonials.map((rev) => (
           <div
-            key={rev.id}
+            key={rev.id || rev._id}
             className="group relative rounded-2xl bg-[#0b1329]/90 border border-slate-800/90 hover:border-cyan-500/40 p-6 flex flex-col justify-between transition-all duration-300 shadow-xl space-y-4"
           >
             {/* Top Stars & Actions */}
@@ -151,7 +183,7 @@ export default function TestimonialsPage() {
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => setDeleteReviewId(rev.id)}
+                  onClick={() => setDeleteReviewId(rev._id || rev.id)}
                   className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
                   title="Delete Review"
                 >
@@ -164,22 +196,32 @@ export default function TestimonialsPage() {
             <div className="relative">
               <Quote className="w-6 h-6 text-slate-700/40 absolute -top-2 -left-2 -z-0" />
               <p className="text-xs text-slate-300 leading-relaxed italic relative z-10">
-                "{rev.content}"
+                "{rev.content || rev.quote}"
               </p>
             </div>
 
-            {/* Author Footer */}
-            <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-200">{rev.author}</h4>
-                <p className="text-[11px] text-slate-400">
-                  {rev.role} · <span className="text-cyan-400 font-semibold">{rev.company}</span>
-                </p>
+            {/* Author Footer with Avatar */}
+            <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <img
+                  src={rev.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&h=100&q=80'}
+                  alt={rev.author}
+                  className="w-8 h-8 rounded-full object-cover border border-cyan-500/30 shrink-0 bg-slate-800"
+                  onError={(e) => {
+                    e.target.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&h=100&q=80';
+                  }}
+                />
+                <div className="truncate">
+                  <h4 className="text-xs font-bold text-slate-200 truncate">{rev.author}</h4>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    {rev.role} {rev.company ? `· ${rev.company}` : ''}
+                  </p>
+                </div>
               </div>
 
               <button
                 onClick={() => handleToggleApproved(rev)}
-                className="cursor-pointer"
+                className="cursor-pointer shrink-0"
                 title="Click to toggle approved status"
               >
                 <Badge label={rev.isApproved ? 'Approved' : 'Pending'} size="xs" dot={true} />
@@ -194,7 +236,7 @@ export default function TestimonialsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingReview ? 'Edit Client Review' : 'Add Client Review'}
-        subtitle="Manage client testimonials and ratings"
+        subtitle="Manage client testimonials, avatar photos, and ratings"
         maxWidth="max-w-xl"
       >
         <form onSubmit={handleSave} className="space-y-4 text-xs">
@@ -259,6 +301,37 @@ export default function TestimonialsPage() {
                 <option value={4}>4 Stars ★★★★☆</option>
                 <option value={3}>3 Stars ★★★☆☆</option>
               </select>
+            </div>
+          </div>
+
+          {/* Avatar Image URL Input with Live Preview */}
+          <div className="space-y-1">
+            <label className="text-slate-300 font-semibold flex items-center justify-between">
+              <span>Avatar / Profile Photo URL</span>
+              <span className="text-[10px] text-slate-400 font-normal">Direct image link (Unsplash, HTTPS, CDN)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative shrink-0 w-11 h-11 rounded-xl bg-[#070c1e] border border-slate-700 overflow-hidden flex items-center justify-center shadow-inner">
+                {formData.avatar ? (
+                  <img
+                    src={formData.avatar}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80';
+                    }}
+                  />
+                ) : (
+                  <span className="text-[10px] text-slate-500 font-mono">No Pic</span>
+                )}
+              </div>
+              <input
+                type="url"
+                value={formData.avatar}
+                onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
+                placeholder="https://images.unsplash.com/photo-..."
+                className="flex-1 p-2.5 rounded-xl bg-[#070c1e] border border-slate-700 text-slate-200 font-mono text-[11px] focus:border-cyan-500 focus:outline-none"
+              />
             </div>
           </div>
 

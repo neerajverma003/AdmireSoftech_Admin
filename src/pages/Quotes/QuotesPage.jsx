@@ -21,8 +21,12 @@ import Modal from '../../components/common/Modal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 
 export default function QuotesPage() {
-  const { quotes, addQuote, updateQuote, deleteQuote } = useAdminData();
+  const { quotes, fetchQuotes, addQuote, updateQuote, deleteQuote } = useAdminData();
   const { showToast } = useToast();
+
+  React.useEffect(() => {
+    fetchQuotes?.();
+  }, [fetchQuotes]);
 
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
