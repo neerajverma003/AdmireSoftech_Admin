@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiRequest } from '../api/client';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { apiRequest, refreshAccessToken, getTokenExpiry } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -14,64 +14,164 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!localStorage.getItem('admire_admin_token');
+    return !!(localStorage.getItem('admire_admin_token') || localStorage.getItem('admire_admin_refresh_token'));
   });
 
   const [loading, setLoading] = useState(true);
+  const refreshTimerRef = useRef(null);
+
+  /**
+   * Schedule automatic silent token refresh 2 minutes before access token expires
+   */
+  const scheduleSilentRefresh = useCallback((token) => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+
+    if (!token) return;
+
+    const expiryMs = getTokenExpiry(token);
+    const now = Date.now();
+    // Refresh 2 minutes (120s) before token expires, or in 10s if already expired/close
+    const delay = expiryMs > now ? Math.max(expiryMs - now - 120000, 10000) : 10000;
+
+    refreshTimerRef.current = setTimeout(async () => {
+      try {
+        const storedRefreshToken = localStorage.getItem('admire_admin_refresh_token');
+        if (!storedRefreshToken) return;
+
+        const refreshData = await refreshAccessToken();
+        if (refreshData && refreshData.accessToken) {
+          if (refreshData.user) {
+            setUser(refreshData.user);
+            localStorage.setItem('admire_admin_user', JSON.stringify(refreshData.user));
+          }
+          setIsAuthenticated(true);
+          scheduleSilentRefresh(refreshData.accessToken);
+        }
+      } catch (err) {
+        console.warn('[Auth] Background silent refresh failed:', err.message);
+      }
+    }, delay);
+  }, []);
 
   // Validate session with backend on initial load
   useEffect(() => {
+    let isMounted = true;
+
     const verifySession = async () => {
       const token = localStorage.getItem('admire_admin_token');
-      if (!token) {
-        setLoading(false);
+      const storedRefreshToken = localStorage.getItem('admire_admin_refresh_token');
+
+      if (!token && !storedRefreshToken) {
+        if (isMounted) setLoading(false);
         return;
       }
 
       try {
-        const response = await apiRequest('/auth/me');
-        if (response && response.user) {
-          if (response.user.role !== 'admin') {
-            throw new Error('Non-admin user');
+        // Step 1: Try verifying current access token
+        if (token) {
+          try {
+            const response = await apiRequest('/auth/me');
+            if (response && response.user) {
+              if (response.user.role !== 'admin') {
+                throw new Error('Non-admin user');
+              }
+              if (isMounted) {
+                setUser(response.user);
+                setIsAuthenticated(true);
+                localStorage.setItem('admire_admin_user', JSON.stringify(response.user));
+                scheduleSilentRefresh(token);
+                setLoading(false);
+              }
+              return;
+            }
+          } catch (meErr) {
+            console.warn('[Auth] Access token invalid or expired, attempting refresh...');
           }
-          setUser(response.user);
-          setIsAuthenticated(true);
-          localStorage.setItem('admire_admin_user', JSON.stringify(response.user));
         }
-      } catch (err) {
-        console.warn('Session verification failed, attempting token refresh:', err.message);
-        try {
-          // Attempt silent refresh via HttpOnly cookie
-          const refreshRes = await apiRequest('/auth/refresh-token', { method: 'POST' });
-          if (refreshRes && refreshRes.accessToken) {
-            localStorage.setItem('admire_admin_token', refreshRes.accessToken);
+
+        // Step 2: If access token failed/missing, attempt refresh using refresh token
+        if (storedRefreshToken) {
+          const refreshData = await refreshAccessToken();
+          if (refreshData && refreshData.accessToken) {
             const userRes = await apiRequest('/auth/me');
             if (userRes && userRes.user && userRes.user.role === 'admin') {
-              setUser(userRes.user);
-              setIsAuthenticated(true);
-              localStorage.setItem('admire_admin_user', JSON.stringify(userRes.user));
-              setLoading(false);
+              if (isMounted) {
+                setUser(userRes.user);
+                setIsAuthenticated(true);
+                localStorage.setItem('admire_admin_user', JSON.stringify(userRes.user));
+                scheduleSilentRefresh(refreshData.accessToken);
+                setLoading(false);
+              }
               return;
             }
           }
-        } catch (refreshErr) {
-          console.warn('Token refresh failed:', refreshErr.message);
         }
 
-        // Clean up invalid session
-        localStorage.removeItem('admire_admin_token');
-        localStorage.removeItem('admire_admin_refresh_token');
-        localStorage.removeItem('admire_admin_user');
-        localStorage.removeItem('admire_admin_auth');
-        setUser(null);
-        setIsAuthenticated(false);
+        throw new Error('No valid session could be established');
+      } catch (err) {
+        console.warn('[Auth] Session verification could not be restored:', err.message);
+        if (isMounted) {
+          localStorage.removeItem('admire_admin_token');
+          localStorage.removeItem('admire_admin_refresh_token');
+          localStorage.removeItem('admire_admin_user');
+          localStorage.removeItem('admire_admin_auth');
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     verifySession();
-  }, []);
+
+    return () => {
+      isMounted = false;
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, [scheduleSilentRefresh]);
+
+  /**
+   * Listen for window focus / tab visibility to refresh token if expired while inactive
+   */
+  useEffect(() => {
+    const handleVisibilityOrFocus = async () => {
+      if (document.visibilityState === 'visible') {
+        const token = localStorage.getItem('admire_admin_token');
+        const refreshToken = localStorage.getItem('admire_admin_refresh_token');
+        if (!token && !refreshToken) return;
+
+        const expiryMs = getTokenExpiry(token);
+        const now = Date.now();
+        // If token expires in less than 60 seconds or is already expired
+        if (expiryMs <= now + 60000) {
+          try {
+            const refreshData = await refreshAccessToken();
+            if (refreshData && refreshData.accessToken) {
+              scheduleSilentRefresh(refreshData.accessToken);
+            }
+          } catch (err) {
+            console.warn('[Auth] Window focus refresh failed:', err.message);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [scheduleSilentRefresh]);
 
   /**
    * Real Backend Admin Login
@@ -101,6 +201,9 @@ export const AuthProvider = ({ children }) => {
       setUser(response.user);
       setIsAuthenticated(true);
 
+      // Start proactive background refresh schedule
+      scheduleSilentRefresh(response.accessToken);
+
       return { success: true, user: response.user };
     } catch (error) {
       console.error('Admin Login Error:', error);
@@ -112,6 +215,11 @@ export const AuthProvider = ({ children }) => {
    * Logout from Backend & Clear Local State
    */
   const logout = async () => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+
     try {
       await apiRequest('/auth/logout', { method: 'POST' }).catch(() => {});
     } finally {

@@ -50,9 +50,41 @@ export const AdminDataProvider = ({ children }) => {
     const stored = loadStoredData(STORAGE_KEYS.QUOTES, []);
     return Array.isArray(stored) ? stored.filter((q) => !q.id?.startsWith('qt-20')) : [];
   });
-  const [jobs, setJobs] = useState(() => loadStoredData(STORAGE_KEYS.JOBS, initialJobs));
-  const [applicants, setApplicants] = useState(() => loadStoredData(STORAGE_KEYS.APPLICANTS, initialApplicants));
-  const [freelance, setFreelance] = useState(() => loadStoredData(STORAGE_KEYS.FREELANCE, initialFreelance));
+  const [jobs, setJobs] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.JOBS, []);
+    return Array.isArray(stored)
+      ? stored.filter(
+          (j) =>
+            !j.id?.startsWith('sr-') &&
+            !j.id?.startsWith('ai-') &&
+            !j.id?.startsWith('devops-') &&
+            !j.id?.startsWith('ui-ux-') &&
+            !j.id?.startsWith('job-')
+        )
+      : [];
+  });
+  const [applicants, setApplicants] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.APPLICANTS, []);
+    return Array.isArray(stored)
+      ? stored.filter((a) => !a.id?.startsWith('app-50') && !a.id?.startsWith('app-'))
+      : [];
+  });
+  const [freelance, setFreelance] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.FREELANCE, []);
+    return Array.isArray(stored)
+      ? stored.filter(
+          (fl) =>
+            !fl.id?.startsWith('fl-') &&
+            !fl.id?.startsWith('cloud-') &&
+            !fl.id?.startsWith('devops-') &&
+            !fl.id?.startsWith('ai-ml-') &&
+            !fl.id?.startsWith('fullstack-') &&
+            !fl.id?.startsWith('postgres-') &&
+            !fl.id?.startsWith('sre-') &&
+            !fl.id?.startsWith('ui-ux-')
+        )
+      : [];
+  });
   const [services, setServices] = useState(() => {
     const stored = loadStoredData(STORAGE_KEYS.SERVICES, []);
     return Array.isArray(stored) ? stored.filter((s) => !s.id?.startsWith('svc-')) : [];
@@ -297,39 +329,112 @@ export const AdminDataProvider = ({ children }) => {
     }
   }, []);
 
+  // ================= FETCH: JOBS & APPLICANTS =================
+  const fetchJobs = useCallback(async () => {
+    try {
+      const res = await apiRequest('/jobs?includeInactive=true');
+      if (res && res.jobs) {
+        const mapped = res.jobs.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setJobs(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch jobs from backend:', e.message);
+    }
+  }, []);
+
+  const fetchApplicants = useCallback(async () => {
+    try {
+      const res = await apiRequest('/jobs/applicants/all');
+      if (res && res.applicants) {
+        const mapped = res.applicants.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+          appliedAt: item.appliedAt || item.createdAt,
+        }));
+        setApplicants(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch applicants from backend:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchJobs();
+    fetchApplicants();
+  }, [fetchJobs, fetchApplicants]);
+
   // ================= CRUD: JOBS =================
-  const addJob = useCallback((jobData) => {
-    const newJob = {
-      id: `job-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      status: 'Active',
-      applicantsCount: 0,
-      responsibilities: [],
-      requirements: [],
-      ...jobData,
-    };
-    setJobs((prev) => [newJob, ...prev]);
-    return newJob;
+  const addJob = useCallback(async (jobData) => {
+    try {
+      const res = await apiRequest('/jobs', {
+        method: 'POST',
+        body: JSON.stringify(jobData),
+      });
+      if (!res || !res.job) {
+        throw new Error(res?.message || 'Failed to create job in database');
+      }
+      const created = { ...res.job, id: res.job._id || res.job.id };
+      setJobs((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      console.error('[Admin Data] Add job failed:', e);
+      throw e;
+    }
   }, []);
 
-  const updateJob = useCallback((id, updatedFields) => {
-    setJobs((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
-    );
+  const updateJob = useCallback(async (id, updatedFields) => {
+    try {
+      const res = await apiRequest(`/jobs/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedFields),
+      });
+      if (!res || !res.job) {
+        throw new Error(res?.message || 'Failed to update job in database');
+      }
+      const updated = { ...res.job, id: res.job._id || res.job.id };
+      setJobs((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? updated : item))
+      );
+      return updated;
+    } catch (e) {
+      console.error('[Admin Data] Backend job update failed:', e);
+      throw e;
+    }
   }, []);
 
-  const toggleJobStatus = useCallback((id) => {
-    setJobs((prev) =>
-      prev.map((job) =>
-        job.id === id
-          ? { ...job, status: job.status === 'Active' ? 'Paused' : 'Active' }
-          : job
-      )
-    );
-  }, []);
+  const toggleJobStatus = useCallback(async (id) => {
+    const target = jobs.find((j) => j.id === id || j._id === id);
+    if (!target) return;
+    const newStatus = target.status === 'Active' ? 'Paused' : 'Active';
+    try {
+      const res = await apiRequest(`/jobs/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus, activeStatus: newStatus === 'Active' }),
+      });
+      if (res && res.job) {
+        const updated = { ...res.job, id: res.job._id || res.job.id };
+        setJobs((prev) =>
+          prev.map((j) => (j.id === id || j._id === id ? updated : j))
+        );
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Backend job toggle status failed:', e.message);
+    }
+  }, [jobs]);
 
-  const deleteJob = useCallback((id) => {
-    setJobs((prev) => prev.filter((item) => item.id !== id));
+  const deleteJob = useCallback(async (id) => {
+    setJobs((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    try {
+      await apiRequest(`/jobs/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend job delete failed:', e.message);
+      throw e;
+    }
   }, []);
 
   // ================= CRUD: APPLICANTS =================
@@ -346,54 +451,168 @@ export const AdminDataProvider = ({ children }) => {
     return newApplicant;
   }, []);
 
-  const updateApplicant = useCallback((id, updatedFields) => {
-    setApplicants((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
-    );
+  const updateApplicant = useCallback(async (id, updatedFields) => {
+    try {
+      const res = await apiRequest(`/jobs/applicants/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedFields),
+      });
+      if (res && res.applicant) {
+        const updated = { ...res.applicant, id: res.applicant._id || res.applicant.id };
+        setApplicants((prev) =>
+          prev.map((item) => (item.id === id || item._id === id ? updated : item))
+        );
+        return updated;
+      }
+    } catch (e) {
+      console.error('[Admin Data] Backend applicant update failed:', e);
+      throw e;
+    }
   }, []);
 
-  const updateApplicantStage = useCallback((id, stage) => {
-    setApplicants((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, stage } : item))
-    );
+  const updateApplicantStage = useCallback(async (id, stage) => {
+    try {
+      const res = await apiRequest(`/jobs/applicants/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ stage }),
+      });
+      if (res && res.applicant) {
+        const updated = { ...res.applicant, id: res.applicant._id || res.applicant.id };
+        setApplicants((prev) =>
+          prev.map((item) => (item.id === id || item._id === id ? updated : item))
+        );
+      }
+    } catch (e) {
+      console.error('[Admin Data] Backend applicant stage update failed:', e);
+    }
   }, []);
 
-  const deleteApplicant = useCallback((id) => {
-    setApplicants((prev) => prev.filter((item) => item.id !== id));
+  const deleteApplicant = useCallback(async (id) => {
+    setApplicants((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    try {
+      await apiRequest(`/jobs/applicants/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend applicant delete failed:', e.message);
+      throw e;
+    }
   }, []);
+
+  // Fetch freelance gigs from backend on mount
+  const fetchFreelance = useCallback(async () => {
+    try {
+      const res = await apiRequest('/freelance?includeInactive=true');
+      if (res && (res.gigs || res.freelance)) {
+        const list = res.gigs || res.freelance || [];
+        const mapped = list.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setFreelance(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch freelance gigs from backend:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFreelance();
+  }, [fetchFreelance]);
 
   // ================= CRUD: FREELANCE =================
-  const addFreelance = useCallback((gigData) => {
-    const newGig = {
-      id: `fl-${Date.now()}`,
-      postedAt: new Date().toISOString(),
-      status: 'Open',
-      proposalsCount: 0,
-      skills: [],
-      ...gigData,
-    };
-    setFreelance((prev) => [newGig, ...prev]);
-    return newGig;
+  const addFreelance = useCallback(async (gigData) => {
+    try {
+      const res = await apiRequest('/freelance', {
+        method: 'POST',
+        body: JSON.stringify(gigData),
+      });
+      if (!res || !res.gig) {
+        throw new Error(res?.message || 'Failed to create freelance project in database');
+      }
+      const created = { ...res.gig, id: res.gig._id };
+      setFreelance((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      console.error('[Admin Data] Add freelance failed:', e);
+      throw e;
+    }
   }, []);
 
-  const updateFreelance = useCallback((id, updatedFields) => {
-    setFreelance((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
-    );
+  const updateFreelance = useCallback(async (id, updatedFields) => {
+    try {
+      const res = await apiRequest(`/freelance/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedFields),
+      });
+      if (res && res.gig) {
+        const updated = { ...res.gig, id: res.gig._id };
+        setFreelance((prev) =>
+          prev.map((item) => (item.id === id || item._id === id ? updated : item))
+        );
+        return updated;
+      }
+    } catch (e) {
+      console.error('[Admin Data] Update freelance failed:', e);
+      throw e;
+    }
   }, []);
 
-  const toggleFreelanceStatus = useCallback((id) => {
-    setFreelance((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, status: item.status === 'Open' ? 'Closed' : 'Open' }
-          : item
-      )
-    );
+  const toggleFreelanceStatus = useCallback(async (id) => {
+    const target = freelance.find((f) => f.id === id || f._id === id);
+    if (!target) return;
+    const nextStatus = !target.activeStatus;
+    try {
+      const res = await apiRequest(`/freelance/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ activeStatus: nextStatus }),
+      });
+      if (res && res.gig) {
+        const updated = { ...res.gig, id: res.gig._id };
+        setFreelance((prev) =>
+          prev.map((item) => (item.id === id || item._id === id ? updated : item))
+        );
+      }
+    } catch (e) {
+      console.error('[Admin Data] Toggle freelance status failed:', e);
+      throw e;
+    }
+  }, [freelance]);
+
+  const deleteFreelance = useCallback(async (id) => {
+    setFreelance((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    try {
+      await apiRequest(`/freelance/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.error('[Admin Data] Delete freelance failed:', e);
+      throw e;
+    }
   }, []);
 
-  const deleteFreelance = useCallback((id) => {
-    setFreelance((prev) => prev.filter((item) => item.id !== id));
+  const fetchProposals = useCallback(async (gigId) => {
+    try {
+      const endpoint = gigId ? `/freelance/${gigId}/proposals` : `/freelance/proposals/all`;
+      const res = await apiRequest(endpoint);
+      return res?.proposals || [];
+    } catch (e) {
+      console.error('[Admin Data] Fetch proposals failed:', e);
+      return [];
+    }
+  }, []);
+
+  const updateProposalStatus = useCallback(async (proposalId, status) => {
+    try {
+      const res = await apiRequest(`/freelance/proposals/${proposalId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      return res;
+    } catch (e) {
+      console.error('[Admin Data] Update proposal status failed:', e);
+      throw e;
+    }
   }, []);
 
   // Fetch services from backend on mount
@@ -847,10 +1066,13 @@ export const AdminDataProvider = ({ children }) => {
       deleteApplicant,
 
       // Freelance Actions
+      fetchFreelance,
       addFreelance,
       updateFreelance,
       toggleFreelanceStatus,
       deleteFreelance,
+      fetchProposals,
+      updateProposalStatus,
 
       // Services Actions
       fetchServices,

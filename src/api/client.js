@@ -1,26 +1,78 @@
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+
+let refreshPromise = null;
+
 /**
- * Centralized API Client Layer for Admire Softech Admin Panel
+ * Perform silent token refresh using the stored refresh token
+ * Shared promise guarantees only 1 network request even if multiple calls trigger concurrently
  */
+export async function refreshAccessToken() {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  refreshPromise = (async () => {
+    try {
+      const storedRefreshToken = localStorage.getItem('admire_admin_refresh_token');
+      if (!storedRefreshToken) {
+        throw new Error('No refresh token available');
+      }
 
-let isRefreshing = false;
-let refreshSubscribers = [];
+      const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-refresh-token': storedRefreshToken,
+        },
+        body: JSON.stringify({ refreshToken: storedRefreshToken }),
+      });
 
-function subscribeTokenRefresh(cb) {
-  refreshSubscribers.push(cb);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || 'Failed to refresh token');
+      }
+
+      const data = await response.json();
+      if (!data.accessToken) {
+        throw new Error('No access token in refresh response');
+      }
+
+      localStorage.setItem('admire_admin_token', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('admire_admin_refresh_token', data.refreshToken);
+      }
+      if (data.user) {
+        localStorage.setItem('admire_admin_user', JSON.stringify(data.user));
+      }
+
+      return data;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
-function onRefreshed(token) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
+/**
+ * Helper to decode JWT and get expiration timestamp (in ms)
+ */
+export function getTokenExpiry(token) {
+  if (!token) return 0;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return (payload.exp || 0) * 1000;
+  } catch {
+    return 0;
+  }
 }
 
 /**
  * Generic API fetch helper with automatic silent token refresh, token authentication, cookies & error handling
  */
 export async function apiRequest(endpoint, options = {}) {
-  let token = localStorage.getItem('admire_admin_token');
+  const token = localStorage.getItem('admire_admin_token');
 
   const defaultHeaders = {
     'Content-Type': 'application/json',
@@ -28,8 +80,10 @@ export async function apiRequest(endpoint, options = {}) {
     ...options.headers,
   };
 
+  const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
   try {
-    let response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    let response = await fetch(`${API_BASE_URL}${formattedEndpoint}`, {
       credentials: 'include',
       ...options,
       headers: defaultHeaders,
@@ -38,51 +92,28 @@ export async function apiRequest(endpoint, options = {}) {
     // If 401 Unauthorized & not an auth endpoint, attempt automatic token refresh
     if (
       response.status === 401 &&
-      !endpoint.startsWith('/auth/login') &&
-      !endpoint.startsWith('/auth/refresh') &&
-      !endpoint.startsWith('/auth/signup')
+      !formattedEndpoint.startsWith('/auth/login') &&
+      !formattedEndpoint.startsWith('/auth/refresh') &&
+      !formattedEndpoint.startsWith('/auth/signup')
     ) {
-      if (!isRefreshing) {
-        isRefreshing = true;
-        try {
-          const storedRefreshToken = localStorage.getItem('admire_admin_refresh_token');
-          const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
-            method: 'POST',
+      try {
+        const refreshData = await refreshAccessToken();
+        if (refreshData && refreshData.accessToken) {
+          // Retry original request with newly refreshed access token
+          const retryHeaders = {
+            ...defaultHeaders,
+            Authorization: `Bearer ${refreshData.accessToken}`,
+            ...options.headers,
+          };
+          response = await fetch(`${API_BASE_URL}${formattedEndpoint}`, {
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: storedRefreshToken }),
+            ...options,
+            headers: retryHeaders,
           });
-
-          if (refreshRes.ok) {
-            const refreshData = await refreshRes.json();
-            const newToken = refreshData.accessToken;
-            if (newToken) {
-              localStorage.setItem('admire_admin_token', newToken);
-              if (refreshData.refreshToken) {
-                localStorage.setItem('admire_admin_refresh_token', refreshData.refreshToken);
-              }
-              isRefreshing = false;
-              onRefreshed(newToken);
-              // Retry original request with newly refreshed access token
-              return apiRequest(endpoint, options);
-            }
-          }
-        } catch (refreshErr) {
-          console.warn('[Admin API Client] Auto-refresh failed:', refreshErr.message);
         }
-        isRefreshing = false;
-        onRefreshed(null);
-      } else {
-        // Queue pending requests while token refresh is in progress
-        return new Promise((resolve, reject) => {
-          subscribeTokenRefresh((newToken) => {
-            if (newToken) {
-              resolve(apiRequest(endpoint, options));
-            } else {
-              reject(new Error('Session expired. Please log in again.'));
-            }
-          });
-        });
+      } catch (refreshErr) {
+        console.warn('[Admin API Client] Auto-refresh failed:', refreshErr.message);
+        throw new Error('Session expired. Please log in again.');
       }
     }
 
@@ -97,4 +128,3 @@ export async function apiRequest(endpoint, options = {}) {
     throw error;
   }
 }
-

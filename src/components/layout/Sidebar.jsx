@@ -10,7 +10,6 @@ import {
   Star,
   HelpCircle,
   Settings,
-  ExternalLink,
   LogOut,
   Laptop,
   X,
@@ -220,20 +219,6 @@ export default function Sidebar({
 
         {/* 3. Bottom Controls & User Area (Always Pinned & Visible, shrink-0) */}
         <div className="shrink-0 p-3 border-t border-slate-800/80 bg-[#060b18]/95 space-y-2">
-          {/* Live Frontend Link */}
-          <a
-            href={settings.frontendUrl || 'http://localhost:5173'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-cyan-300 hover:bg-slate-800/60 border border-slate-800/80 transition-all ${
-              isDesktopCollapsed ? 'justify-center px-0' : ''
-            }`}
-            title="Open Live Website"
-          >
-            <ExternalLink className="w-4 h-4 text-cyan-400 shrink-0" />
-            {!isDesktopCollapsed && <span className="truncate">View Live Website</span>}
-          </a>
-
           {/* User profile / Logout */}
           <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-900/90 border border-slate-800 ${
             isDesktopCollapsed ? 'justify-center' : ''
