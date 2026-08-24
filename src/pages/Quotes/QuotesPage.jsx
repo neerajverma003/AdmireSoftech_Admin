@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   FileSpreadsheet,
-  DollarSign,
+  IndianRupee,
   Calendar,
   Clock,
   Send,
@@ -40,7 +40,7 @@ export default function QuotesPage() {
     phone: '',
     serviceType: 'Enterprise Cloud Infrastructure',
     projectScope: '',
-    estimatedBudget: '$20,000 - $35,000',
+    estimatedBudget: '₹1.5 Lakhs - ₹3.5 Lakhs',
     timeline: '1 - 2 Months',
     urgency: 'Medium',
     status: 'Pending Review',
@@ -366,16 +366,17 @@ export default function QuotesPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">Budget Range</label>
+              <label className="text-slate-300 font-semibold">Budget Range (INR)</label>
               <select
                 value={formData.estimatedBudget}
                 onChange={(e) => setFormData({ ...formData, estimatedBudget: e.target.value })}
                 className="w-full p-2.5 rounded-xl bg-[#070c1e] border border-slate-700 text-slate-200 focus:border-amber-500 focus:outline-none"
               >
-                <option>$10,000 - $25,000</option>
-                <option>$25,000 - $50,000</option>
-                <option>$50,000 - $100,000</option>
-                <option>$100,000+</option>
+                <option>₹50,000 - ₹1.5 Lakhs</option>
+                <option>₹1.5 Lakhs - ₹3.5 Lakhs</option>
+                <option>₹3.5 Lakhs - ₹7.5 Lakhs</option>
+                <option>₹7.5 Lakhs - ₹15 Lakhs</option>
+                <option>₹15 Lakhs+</option>
               </select>
             </div>
           </div>

@@ -37,11 +37,11 @@ export default function DashboardPage() {
 
   // Group inquiries by service
   const serviceDistribution = [
-    { name: 'Cloud & DevOps', count: inquiries.filter((i) => i.service?.includes('Cloud')).length + 4, color: 'bg-cyan-400' },
-    { name: 'AI & Machine Learning', count: inquiries.filter((i) => i.service?.includes('Artificial') || i.service?.includes('AI')).length + 6, color: 'bg-purple-400' },
-    { name: 'Full-Stack Web/Mobile', count: inquiries.filter((i) => i.service?.includes('Full-Stack')).length + 5, color: 'bg-blue-400' },
-    { name: 'Cybersecurity & Compliance', count: inquiries.filter((i) => i.service?.includes('Cybersecurity')).length + 3, color: 'bg-rose-400' },
-    { name: 'Data Engineering & BI', count: inquiries.filter((i) => i.service?.includes('Data')).length + 2, color: 'bg-teal-400' },
+    { name: 'Cloud & DevOps', count: inquiries.filter((i) => i.service?.toLowerCase().includes('cloud')).length, color: 'bg-cyan-400' },
+    { name: 'AI & Machine Learning', count: inquiries.filter((i) => i.service?.toLowerCase().includes('artificial') || i.service?.toLowerCase().includes('ai')).length, color: 'bg-purple-400' },
+    { name: 'Full-Stack Web/Mobile', count: inquiries.filter((i) => i.service?.toLowerCase().includes('full-stack') || i.service?.toLowerCase().includes('web') || i.service?.toLowerCase().includes('mobile')).length, color: 'bg-blue-400' },
+    { name: 'Cybersecurity & Compliance', count: inquiries.filter((i) => i.service?.toLowerCase().includes('cybersecurity')).length, color: 'bg-rose-400' },
+    { name: 'Data Engineering & BI', count: inquiries.filter((i) => i.service?.toLowerCase().includes('data')).length, color: 'bg-teal-400' },
   ];
 
   const totalServiceInquiries = serviceDistribution.reduce((acc, s) => acc + s.count, 0) || 1;
@@ -59,7 +59,7 @@ export default function DashboardPage() {
               <span>Admire Softech Enterprise Hub</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
-              Welcome back, <span className="gradient-text-cyan">{user?.name || 'Commander'}</span>
+              Welcome back, <span className="gradient-text-cyan">{user?.name || 'Administrator'}</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
               You have <span className="text-cyan-400 font-semibold">{newInquiries} unread leads</span> and{' '}
@@ -92,7 +92,7 @@ export default function DashboardPage() {
         <StatCard
           title="Total CRM Inquiries"
           value={inquiries.length}
-          change="+24.5%"
+          change={`${newInquiries} new`}
           isPositive={true}
           subtitle={`${newInquiries} pending review`}
           icon={Inbox}
@@ -101,8 +101,8 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Quotes Estimated"
-          value={stats.totalRevenueEstimated || '$480K'}
-          change="+18.2%"
+          value={quotes.length}
+          change={`${quotes.filter((q) => q.status === 'Pending Review').length} pending`}
           isPositive={true}
           subtitle={`${quotes.length} total quotes submitted`}
           icon={FileSpreadsheet}
@@ -112,7 +112,7 @@ export default function DashboardPage() {
         <StatCard
           title="Active Openings & ATS"
           value={`${activeJobs} Jobs / ${applicants.length} Apps`}
-          change="+12.0%"
+          change={`${activeJobs} active`}
           isPositive={true}
           subtitle={`${pendingApplicants} active in pipeline`}
           icon={Briefcase}
@@ -122,9 +122,9 @@ export default function DashboardPage() {
         <StatCard
           title="Engineers & CSAT"
           value={`${team.length} Staff / ${stats.clientSatisfaction || '98%'}`}
-          change="+99.9%"
+          change={stats.uptimeSLA || '99.9%'}
           isPositive={true}
-          subtitle="Zero critical downtime"
+          subtitle="SLA Availability"
           icon={Users}
           accent="emerald"
           onClick={() => navigate('/team')}

@@ -14,7 +14,7 @@ import {
   Star,
   ExternalLink,
   MapPin,
-  DollarSign,
+  IndianRupee,
   Download,
 } from 'lucide-react';
 import { useAdminData } from '../../context/AdminDataContext';
@@ -341,7 +341,7 @@ export default function CareersPage() {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold cursor-pointer transition-colors"
           >
             <Download className="w-3 h-3" />
-            <span>PDF (S3)</span>
+            <span>PDF</span>
           </a>
         );
       },

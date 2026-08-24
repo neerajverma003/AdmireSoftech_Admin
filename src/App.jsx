@@ -13,10 +13,13 @@ import QuotesPage from './pages/Quotes/QuotesPage';
 import CareersPage from './pages/Careers/CareersPage';
 import FreelancePage from './pages/Freelance/FreelancePage';
 import ServicesPage from './pages/Services/ServicesPage';
+import IndustriesPage from './pages/Industries/IndustriesPage';
 import TeamPage from './pages/Team/TeamPage';
 import TestimonialsPage from './pages/Testimonials/TestimonialsPage';
 import FaqsPage from './pages/Faqs/FaqsPage';
 import SettingsPage from './pages/Settings/SettingsPage';
+import NotificationEmailsPage from './pages/Settings/NotificationEmailsPage';
+import ProfilePage from './pages/Profile/ProfilePage';
 
 // Protected Route Guard
 const ProtectedRoute = ({ children }) => {
@@ -64,11 +67,15 @@ function App() {
                 <Route path="careers" element={<CareersPage />} />
                 <Route path="freelance" element={<FreelancePage />} />
                 <Route path="services" element={<ServicesPage />} />
+                <Route path="industries" element={<IndustriesPage />} />
                 <Route path="team" element={<TeamPage />} />
                 <Route path="testimonials" element={<TestimonialsPage />} />
                 <Route path="reviews" element={<TestimonialsPage />} />
                 <Route path="faqs" element={<FaqsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings/notifications" element={<NotificationEmailsPage />} />
+                <Route path="notifications" element={<NotificationEmailsPage />} />
+                <Route path="profile" element={<ProfilePage />} />
               </Route>
 
               {/* Fallback */}

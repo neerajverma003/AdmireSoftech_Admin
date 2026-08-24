@@ -4,7 +4,7 @@ import {
   Plus,
   Edit2,
   Trash2,
-  DollarSign,
+  IndianRupee,
   Clock,
   Code2,
   Layers,
@@ -327,10 +327,10 @@ export default function FreelancePage() {
         <div className="p-4 rounded-2xl bg-[#0b1329]/90 border border-slate-800/90 flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-[11px] font-medium text-slate-400">Avg. Hourly Rate</span>
-            <div className="text-xl font-bold text-cyan-300">$85 / hr</div>
+            <div className="text-xl font-bold text-cyan-300">₹1,500 / hr</div>
           </div>
           <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-            <DollarSign className="w-4 h-4" />
+            <IndianRupee className="w-4 h-4" />
           </div>
         </div>
       </div>
@@ -398,12 +398,12 @@ export default function FreelancePage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">Hourly Rate</label>
+              <label className="text-slate-300 font-semibold">Rate Budget (INR)</label>
               <input
                 type="text"
                 value={formData.rate}
                 onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
-                placeholder="$75 - $110 / hr"
+                placeholder="₹1,200 - ₹2,500 / hr"
                 className="w-full p-2.5 rounded-xl bg-[#070c1e] border border-slate-700 text-slate-200 focus:border-cyan-500 focus:outline-none"
               />
             </div>
@@ -477,7 +477,7 @@ export default function FreelancePage() {
         isOpen={Boolean(selectedGigForProposals)}
         onClose={() => setSelectedGigForProposals(null)}
         title={selectedGigForProposals ? `Contractor Proposals: ${selectedGigForProposals.title}` : 'Proposals'}
-        subtitle="Review applicant proposals, hourly bids, and direct S3 resumes"
+        subtitle="Review applicant proposals, hourly bids, and resumes"
         maxWidth="max-w-4xl"
       >
         <div className="space-y-4 text-xs">

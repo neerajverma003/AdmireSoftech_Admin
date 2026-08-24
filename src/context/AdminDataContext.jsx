@@ -13,6 +13,7 @@ import {
   initialStats,
 } from '../data/seedData';
 import { apiRequest } from '../api/client';
+import { fetchCompanySettings, updateCompanySettings } from '../api/settingsApi';
 
 const AdminDataContext = createContext(null);
 
@@ -23,6 +24,7 @@ const STORAGE_KEYS = {
   APPLICANTS: 'admire_admin_applicants',
   FREELANCE: 'admire_admin_freelance',
   SERVICES: 'admire_admin_services',
+  INDUSTRIES: 'admire_admin_industries',
   TEAM: 'admire_admin_team',
   TESTIMONIALS: 'admire_admin_testimonials',
   FAQS: 'admire_admin_faqs',
@@ -52,16 +54,7 @@ export const AdminDataProvider = ({ children }) => {
   });
   const [jobs, setJobs] = useState(() => {
     const stored = loadStoredData(STORAGE_KEYS.JOBS, []);
-    return Array.isArray(stored)
-      ? stored.filter(
-          (j) =>
-            !j.id?.startsWith('sr-') &&
-            !j.id?.startsWith('ai-') &&
-            !j.id?.startsWith('devops-') &&
-            !j.id?.startsWith('ui-ux-') &&
-            !j.id?.startsWith('job-')
-        )
-      : [];
+    return Array.isArray(stored) ? stored.filter((j) => !j.id?.startsWith('job-30')) : [];
   });
   const [applicants, setApplicants] = useState(() => {
     const stored = loadStoredData(STORAGE_KEYS.APPLICANTS, []);
@@ -88,6 +81,10 @@ export const AdminDataProvider = ({ children }) => {
   const [services, setServices] = useState(() => {
     const stored = loadStoredData(STORAGE_KEYS.SERVICES, []);
     return Array.isArray(stored) ? stored.filter((s) => !s.id?.startsWith('svc-')) : [];
+  });
+  const [industries, setIndustries] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.INDUSTRIES, []);
+    return Array.isArray(stored) ? stored : [];
   });
   const [team, setTeam] = useState(() => {
     const stored = loadStoredData(STORAGE_KEYS.TEAM, []);
@@ -146,6 +143,12 @@ export const AdminDataProvider = ({ children }) => {
 
   useEffect(() => {
     try {
+      localStorage.setItem(STORAGE_KEYS.INDUSTRIES, JSON.stringify(industries));
+    } catch {}
+  }, [industries]);
+
+  useEffect(() => {
+    try {
       localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(team));
     } catch {}
   }, [team]);
@@ -173,6 +176,22 @@ export const AdminDataProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
     } catch {}
   }, [stats]);
+
+  // Sync settings and stats from backend on mount
+  useEffect(() => {
+    fetchCompanySettings()
+      .then((remoteSettings) => {
+        if (remoteSettings) {
+          setSettings((prev) => ({ ...prev, ...remoteSettings }));
+          if (remoteSettings.stats) {
+            setStats((prev) => ({ ...prev, ...remoteSettings.stats }));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('[AdminDataContext] Remote settings fetch fallback:', err.message);
+      });
+  }, []);
 
   // Fetch inquiries from backend on mount
   const fetchInquiries = useCallback(async () => {
@@ -698,6 +717,84 @@ export const AdminDataProvider = ({ children }) => {
     }
   }, []);
 
+  // Fetch industries from backend on mount
+  const fetchIndustries = useCallback(async () => {
+    try {
+      const res = await apiRequest('/industries?includeInactive=true');
+      if (res && res.industries) {
+        const mapped = res.industries.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setIndustries(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch industries from backend:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIndustries();
+  }, [fetchIndustries]);
+
+  // ================= CRUD: INDUSTRIES =================
+  const addIndustry = useCallback(async (industryData) => {
+    try {
+      const res = await apiRequest('/industries', {
+        method: 'POST',
+        body: JSON.stringify(industryData),
+      });
+      if (!res || !res.industry) {
+        throw new Error(res?.message || 'Failed to create industry in database');
+      }
+      const created = { ...res.industry, id: res.industry._id || res.industry.id };
+      setIndustries((prev) => [created, ...prev]);
+      return created;
+    } catch (e) {
+      console.error('[Admin Data] Backend industry create failed:', e);
+      throw e;
+    }
+  }, []);
+
+  const updateIndustry = useCallback(async (id, updates) => {
+    try {
+      const res = await apiRequest(`/industries/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      if (!res || !res.industry) {
+        throw new Error(res?.message || 'Failed to update industry in database');
+      }
+      const updated = { ...res.industry, id: res.industry._id || res.industry.id };
+      setIndustries((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? updated : item))
+      );
+      return updated;
+    } catch (e) {
+      console.error('[Admin Data] Backend industry update failed:', e);
+      throw e;
+    }
+  }, []);
+
+  const toggleIndustryStatus = useCallback(async (id) => {
+    const target = industries.find((item) => item.id === id || item._id === id);
+    if (!target) return;
+    const newStatus = !target.isActive;
+    await updateIndustry(id, { isActive: newStatus });
+  }, [industries, updateIndustry]);
+
+  const deleteIndustry = useCallback(async (id) => {
+    setIndustries((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    try {
+      await apiRequest(`/industries/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.warn('[Admin Data] Backend industry delete failed:', e.message);
+      throw e;
+    }
+  }, []);
+
   // Fetch team from backend on mount
   const fetchTeam = useCallback(async () => {
     try {
@@ -975,12 +1072,22 @@ export const AdminDataProvider = ({ children }) => {
   }, [faqs]);
 
   // ================= SETTINGS & STATS =================
-  const updateSettings = useCallback((updatedFields) => {
+  const updateSettings = useCallback(async (updatedFields) => {
     setSettings((prev) => ({ ...prev, ...updatedFields }));
+    try {
+      await updateCompanySettings(updatedFields);
+    } catch (e) {
+      console.warn('[AdminDataContext] Backend settings save warning:', e.message);
+    }
   }, []);
 
-  const updateStats = useCallback((updatedFields) => {
-    setStats((prev) => ({ ...prev, ...updatedFields }));
+  const updateStats = useCallback(async (updatedStats) => {
+    setStats((prev) => ({ ...prev, ...updatedStats }));
+    try {
+      await updateCompanySettings({ stats: updatedStats });
+    } catch (e) {
+      console.warn('[AdminDataContext] Backend stats save warning:', e.message);
+    }
   }, []);
 
   // Reset all admin data to seed defaults
@@ -1029,6 +1136,7 @@ export const AdminDataProvider = ({ children }) => {
       applicants,
       freelance,
       services,
+      industries,
       team,
       testimonials,
       faqs,
@@ -1080,6 +1188,13 @@ export const AdminDataProvider = ({ children }) => {
       updateService,
       deleteService,
 
+      // Industries Actions
+      fetchIndustries,
+      addIndustry,
+      updateIndustry,
+      toggleIndustryStatus,
+      deleteIndustry,
+
       // Team Actions
       fetchTeam,
       addTeamMember,
@@ -1110,6 +1225,7 @@ export const AdminDataProvider = ({ children }) => {
       applicants,
       freelance,
       services,
+      industries,
       team,
       testimonials,
       faqs,
@@ -1142,6 +1258,11 @@ export const AdminDataProvider = ({ children }) => {
       addService,
       updateService,
       deleteService,
+      fetchIndustries,
+      addIndustry,
+      updateIndustry,
+      toggleIndustryStatus,
+      deleteIndustry,
       fetchTeam,
       addTeamMember,
       updateTeamMember,

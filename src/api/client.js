@@ -1,4 +1,10 @@
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+const rawBase = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:5000'
+).replace(/\/+$/, '');
+
+export const API_BASE_URL = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
 
 let refreshPromise = null;
 
@@ -82,11 +88,17 @@ export async function apiRequest(endpoint, options = {}) {
 
   const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
+  let requestBody = options.body;
+  if (requestBody && typeof requestBody === 'object' && !(requestBody instanceof FormData)) {
+    requestBody = JSON.stringify(requestBody);
+  }
+
   try {
     let response = await fetch(`${API_BASE_URL}${formattedEndpoint}`, {
       credentials: 'include',
       ...options,
       headers: defaultHeaders,
+      ...(requestBody !== undefined ? { body: requestBody } : {}),
     });
 
     // If 401 Unauthorized & not an auth endpoint, attempt automatic token refresh
@@ -109,6 +121,7 @@ export async function apiRequest(endpoint, options = {}) {
             credentials: 'include',
             ...options,
             headers: retryHeaders,
+            ...(requestBody !== undefined ? { body: requestBody } : {}),
           });
         }
       } catch (refreshErr) {

@@ -232,6 +232,64 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Update Profile Details (Name, Email, Avatar)
+   */
+  const updateProfile = async ({ name, email, avatar }) => {
+    try {
+      const response = await apiRequest('/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ name, email, avatar }),
+      });
+
+      if (!response || !response.user) {
+        throw new Error(response?.message || 'Failed to update profile.');
+      }
+
+      const updatedUser = {
+        ...user,
+        ...response.user,
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem('admire_admin_user', JSON.stringify(updatedUser));
+
+      return { success: true, user: updatedUser, message: response.message };
+    } catch (error) {
+      console.error('Update Profile Error:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Send Password Reset OTP
+   */
+  const sendPasswordResetOtp = async (targetEmail) => {
+    const emailToSend = targetEmail || user?.email;
+    if (!emailToSend) {
+      throw new Error('Email address is required to request an OTP');
+    }
+
+    const response = await apiRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: emailToSend }),
+    });
+
+    return response;
+  };
+
+  /**
+   * Reset Password with verified OTP
+   */
+  const resetPassword = async (email, otp, newPassword) => {
+    const response = await apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+
+    return response;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -240,6 +298,9 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        updateProfile,
+        sendPasswordResetOtp,
+        resetPassword,
       }}
     >
       {children}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   Search,
@@ -8,6 +9,8 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  User,
+  KeyRound,
 } from 'lucide-react';
 import { useAdminData } from '../../context/AdminDataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +27,7 @@ export default function Header({
   const { summaryCounts } = useAdminData();
   const { user, logout } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -121,8 +125,12 @@ export default function Header({
               onClick={() => setIsProfileDropdownOpen((prev) => !prev)}
               className="flex items-center gap-2 p-1 pl-1.5 sm:pl-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 hover:border-cyan-500/40 transition-all cursor-pointer"
             >
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-bold text-xs shadow-md">
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+              <div className="w-7 h-7 rounded-lg overflow-hidden bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-bold text-xs shadow-md shrink-0">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{user?.name ? user.name.charAt(0).toUpperCase() : 'A'}</span>
+                )}
               </div>
               <div className="hidden sm:block text-left pr-1">
                 <p className="text-xs font-semibold text-slate-200 leading-tight">
@@ -152,12 +160,36 @@ export default function Header({
                   <p className="text-[11px] text-slate-400 truncate mt-1.5">{user?.email || 'admin@admiresoftech.com'}</p>
                 </div>
 
-                <div className="pt-1.5 pb-0.5">
+                <div className="pt-1.5 pb-0.5 space-y-1">
+                  <button
+                    onClick={() => {
+                      setIsProfileDropdownOpen(false);
+                      navigate('/profile');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 font-medium transition-colors cursor-pointer text-left"
+                  >
+                    <User className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <span>My Profile & Photo</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileDropdownOpen(false);
+                      navigate('/profile');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 font-medium transition-colors cursor-pointer text-left"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <span>Change Password (OTP)</span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-800/80" />
+
                   <button
                     onClick={handleSignOut}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-500/10 font-semibold transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-500/10 font-semibold transition-colors cursor-pointer text-left"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-3.5 h-3.5 shrink-0" />
                     <span>Sign Out</span>
                   </button>
                 </div>

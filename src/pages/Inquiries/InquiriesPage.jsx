@@ -5,7 +5,7 @@ import {
   Phone,
   Building,
   Calendar,
-  DollarSign,
+  IndianRupee,
   Clock,
   Eye,
   Trash2,

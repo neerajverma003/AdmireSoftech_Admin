@@ -10,9 +10,12 @@ import {
   Star,
   HelpCircle,
   Settings,
+  Mail,
   LogOut,
   Laptop,
   X,
+  User,
+  Globe,
 } from 'lucide-react';
 import { useAdminData } from '../../context/AdminDataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -86,6 +89,11 @@ export default function Sidebar({
           icon: Layers,
         },
         {
+          name: 'Industry Verticals',
+          path: '/industries',
+          icon: Globe,
+        },
+        {
           name: 'Team Directory',
           path: '/team',
           icon: Users,
@@ -107,6 +115,16 @@ export default function Sidebar({
     {
       group: 'Administration',
       items: [
+        {
+          name: 'Admin Profile',
+          path: '/profile',
+          icon: User,
+        },
+        {
+          name: 'Notification Emails',
+          path: '/settings/notifications',
+          icon: Mail,
+        },
         {
           name: 'Settings & Config',
           path: '/settings',
@@ -219,21 +237,39 @@ export default function Sidebar({
 
         {/* 3. Bottom Controls & User Area (Always Pinned & Visible, shrink-0) */}
         <div className="shrink-0 p-3 border-t border-slate-800/80 bg-[#060b18]/95 space-y-2">
-          {/* User profile / Logout */}
-          <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-900/90 border border-slate-800 ${
+          {/* User profile card linking to /profile */}
+          <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-cyan-500/40 transition-all ${
             isDesktopCollapsed ? 'justify-center' : ''
           }`}>
-            <img
-              src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
-              alt="Avatar"
-              className="w-8 h-8 rounded-full object-cover border border-cyan-500/40 shrink-0"
-            />
-            {!isDesktopCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-slate-200 truncate">{user?.name || 'Admin'}</p>
-                <p className="text-[10px] text-cyan-400 truncate">{user?.role || 'Super Admin'}</p>
+            <NavLink
+              to="/profile"
+              onClick={handleLinkClick}
+              className="flex items-center gap-2.5 flex-1 min-w-0 group"
+              title="View Admin Profile"
+            >
+              <div className="w-8 h-8 rounded-full overflow-hidden border border-cyan-500/40 bg-gradient-to-br from-cyan-950 to-blue-950 flex items-center justify-center shrink-0">
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs font-bold text-cyan-400">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+                  </span>
+                )}
               </div>
-            )}
+              {!isDesktopCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-200 truncate group-hover:text-cyan-300 transition-colors">
+                    {user?.name || 'Admin'}
+                  </p>
+                  <p className="text-[10px] text-cyan-400 truncate capitalize">{user?.role || 'Admin'}</p>
+                </div>
+              )}
+            </NavLink>
+
             {!isDesktopCollapsed && (
               <button
                 onClick={logout}
