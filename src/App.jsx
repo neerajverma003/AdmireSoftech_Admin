@@ -13,6 +13,7 @@ import QuotesPage from './pages/Quotes/QuotesPage';
 import CareersPage from './pages/Careers/CareersPage';
 import FreelancePage from './pages/Freelance/FreelancePage';
 import ServicesPage from './pages/Services/ServicesPage';
+import CaseStudiesPage from './pages/CaseStudies/CaseStudiesPage';
 import IndustriesPage from './pages/Industries/IndustriesPage';
 import TeamPage from './pages/Team/TeamPage';
 import TestimonialsPage from './pages/Testimonials/TestimonialsPage';
@@ -20,6 +21,7 @@ import FaqsPage from './pages/Faqs/FaqsPage';
 import SettingsPage from './pages/Settings/SettingsPage';
 import NotificationEmailsPage from './pages/Settings/NotificationEmailsPage';
 import ProfilePage from './pages/Profile/ProfilePage';
+import EstimatorBuilderPage from './pages/EstimatorBuilder/EstimatorBuilderPage';
 
 // Protected Route Guard
 const ProtectedRoute = ({ children }) => {
@@ -64,9 +66,12 @@ function App() {
                 <Route index element={<DashboardPage />} />
                 <Route path="inquiries" element={<InquiriesPage />} />
                 <Route path="quotes" element={<QuotesPage />} />
+                <Route path="estimator-builder" element={<EstimatorBuilderPage />} />
+                <Route path="quotes/customizer" element={<EstimatorBuilderPage />} />
                 <Route path="careers" element={<CareersPage />} />
                 <Route path="freelance" element={<FreelancePage />} />
                 <Route path="services" element={<ServicesPage />} />
+                <Route path="case-studies" element={<CaseStudiesPage />} />
                 <Route path="industries" element={<IndustriesPage />} />
                 <Route path="team" element={<TeamPage />} />
                 <Route path="testimonials" element={<TestimonialsPage />} />

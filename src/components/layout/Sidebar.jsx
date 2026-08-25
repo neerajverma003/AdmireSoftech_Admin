@@ -16,6 +16,8 @@ import {
   X,
   User,
   Globe,
+  Award,
+  Sliders,
 } from 'lucide-react';
 import { useAdminData } from '../../context/AdminDataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -61,6 +63,13 @@ export default function Sidebar({
           badge: summaryCounts.pendingQuotes > 0 ? `${summaryCounts.pendingQuotes}` : null,
           badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
         },
+        {
+          name: 'Estimator Builder',
+          path: '/estimator-builder',
+          icon: Sliders,
+          badge: 'Form',
+          badgeColor: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
+        },
       ],
     },
     {
@@ -87,6 +96,11 @@ export default function Sidebar({
           name: 'Services & Tech',
           path: '/services',
           icon: Layers,
+        },
+        {
+          name: 'Case Studies',
+          path: '/case-studies',
+          icon: Award,
         },
         {
           name: 'Industry Verticals',

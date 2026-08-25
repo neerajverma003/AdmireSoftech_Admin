@@ -25,6 +25,7 @@ const STORAGE_KEYS = {
   FREELANCE: 'admire_admin_freelance',
   SERVICES: 'admire_admin_services',
   INDUSTRIES: 'admire_admin_industries',
+  CASE_STUDIES: 'admire_admin_case_studies',
   TEAM: 'admire_admin_team',
   TESTIMONIALS: 'admire_admin_testimonials',
   FAQS: 'admire_admin_faqs',
@@ -84,6 +85,10 @@ export const AdminDataProvider = ({ children }) => {
   });
   const [industries, setIndustries] = useState(() => {
     const stored = loadStoredData(STORAGE_KEYS.INDUSTRIES, []);
+    return Array.isArray(stored) ? stored : [];
+  });
+  const [caseStudies, setCaseStudies] = useState(() => {
+    const stored = loadStoredData(STORAGE_KEYS.CASE_STUDIES, []);
     return Array.isArray(stored) ? stored : [];
   });
   const [team, setTeam] = useState(() => {
@@ -146,6 +151,12 @@ export const AdminDataProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEYS.INDUSTRIES, JSON.stringify(industries));
     } catch {}
   }, [industries]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CASE_STUDIES, JSON.stringify(caseStudies));
+    } catch {}
+  }, [caseStudies]);
 
   useEffect(() => {
     try {
@@ -815,6 +826,98 @@ export const AdminDataProvider = ({ children }) => {
     fetchTeam();
   }, [fetchTeam]);
 
+  // Fetch Case Studies from backend on mount
+  const fetchCaseStudies = useCallback(async () => {
+    try {
+      const res = await apiRequest('/case-studies');
+      const list = res?.data || res?.caseStudies || [];
+      if (Array.isArray(list)) {
+        const mapped = list.map((item) => ({
+          ...item,
+          id: item._id || item.id,
+        }));
+        setCaseStudies(mapped);
+      }
+    } catch (e) {
+      console.warn('[Admin Data] Could not fetch case studies from backend:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCaseStudies();
+  }, [fetchCaseStudies]);
+
+  // ================= CRUD: CASE STUDIES =================
+  const addCaseStudy = useCallback(async (caseStudyData) => {
+    try {
+      const res = await apiRequest('/case-studies', {
+        method: 'POST',
+        body: JSON.stringify(caseStudyData),
+      });
+      const created = res?.data || res?.caseStudy || res;
+      const formatted = { ...created, id: created._id || created.id };
+      setCaseStudies((prev) => [formatted, ...prev]);
+      return formatted;
+    } catch (e) {
+      console.error('[Admin Data] Add case study failed:', e);
+      throw e;
+    }
+  }, []);
+
+  const updateCaseStudy = useCallback(async (id, updatedFields) => {
+    try {
+      const target = caseStudies.find((c) => c.id === id || c._id === id);
+      const mongoId = target?._id || id;
+      const res = await apiRequest(`/case-studies/${mongoId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedFields),
+      });
+      const updated = res?.data || res?.caseStudy || res;
+      const formatted = { ...updated, id: updated._id || updated.id };
+      setCaseStudies((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? formatted : item))
+      );
+      return formatted;
+    } catch (e) {
+      console.error('[Admin Data] Update case study failed:', e);
+      throw e;
+    }
+  }, [caseStudies]);
+
+  const deleteCaseStudy = useCallback(async (id) => {
+    try {
+      const target = caseStudies.find((c) => c.id === id || c._id === id);
+      const mongoId = target?._id || id;
+      await apiRequest(`/case-studies/${mongoId}`, {
+        method: 'DELETE',
+      });
+      setCaseStudies((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    } catch (e) {
+      console.error('[Admin Data] Delete case study failed:', e);
+      throw e;
+    }
+  }, [caseStudies]);
+
+  const toggleCaseStudyStatus = useCallback(async (id, field = 'isPublished') => {
+    try {
+      const target = caseStudies.find((c) => c.id === id || c._id === id);
+      const mongoId = target?._id || id;
+      const res = await apiRequest(`/case-studies/${mongoId}/toggle-status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ field }),
+      });
+      const updated = res?.data || res;
+      const formatted = { ...updated, id: updated._id || updated.id };
+      setCaseStudies((prev) =>
+        prev.map((item) => (item.id === id || item._id === id ? formatted : item))
+      );
+      return formatted;
+    } catch (e) {
+      console.error('[Admin Data] Toggle case study status failed:', e);
+      throw e;
+    }
+  }, [caseStudies]);
+
   // ================= CRUD: TEAM =================
   const addTeamMember = useCallback(async (memberData) => {
     try {
@@ -1195,6 +1298,14 @@ export const AdminDataProvider = ({ children }) => {
       toggleIndustryStatus,
       deleteIndustry,
 
+      // Case Studies Actions
+      caseStudies,
+      fetchCaseStudies,
+      addCaseStudy,
+      updateCaseStudy,
+      toggleCaseStudyStatus,
+      deleteCaseStudy,
+
       // Team Actions
       fetchTeam,
       addTeamMember,
@@ -1226,6 +1337,7 @@ export const AdminDataProvider = ({ children }) => {
       freelance,
       services,
       industries,
+      caseStudies,
       team,
       testimonials,
       faqs,
@@ -1263,6 +1375,11 @@ export const AdminDataProvider = ({ children }) => {
       updateIndustry,
       toggleIndustryStatus,
       deleteIndustry,
+      fetchCaseStudies,
+      addCaseStudy,
+      updateCaseStudy,
+      toggleCaseStudyStatus,
+      deleteCaseStudy,
       fetchTeam,
       addTeamMember,
       updateTeamMember,

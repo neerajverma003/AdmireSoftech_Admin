@@ -1,7 +1,11 @@
 import { apiRequest } from './client';
+import { convertImageToWebP } from '../utils/imageConverter';
 
 /**
- * Upload a file directly to AWS S3 using a Presigned PUT URL with contextual folder hierarchy
+ * Upload a file directly to AWS S3 using a Presigned PUT URL with contextual folder hierarchy.
+ * Automatically converts image files (JPEG, PNG, BMP, TIFF) to WebP format before upload.
+ * Non-image files (PDFs, DOCX resumes) pass through untouched.
+ *
  * @param {File} file - The file object from <input type="file" />
  * @param {Object|string} options - Upload context options or legacy folder string
  * @param {string} [options.module='avatars'] - 'avatars' | 'careers' | 'freelance' | 'assets'
@@ -10,6 +14,7 @@ import { apiRequest } from './client';
  * @param {string} [options.email=''] - User email address
  * @param {string} [options.candidateName=''] - User or administrator full name
  * @param {string} [options.folder=''] - Custom folder fallback
+ * @param {number} [options.quality=0.85] - WebP compression quality (0.0 to 1.0)
  * @returns {Promise<{ publicUrl: string, previewUrl: string, key: string, fileName: string }>}
  */
 export const uploadFileToS3 = async (file, options = {}) => {
@@ -27,15 +32,19 @@ export const uploadFileToS3 = async (file, options = {}) => {
     email = '',
     candidateName = '',
     folder = '',
+    quality = 0.85,
   } = uploadOptions;
 
   try {
-    // 1. Request Presigned PUT URL with contextual metadata
+    // 1. Automatically convert image to optimized WebP format (bypasses non-images/PDFs/SVGs)
+    const fileToUpload = await convertImageToWebP(file, { quality });
+
+    // 2. Request Presigned PUT URL with contextual metadata
     const presignedData = await apiRequest('/upload/generate-presigned-url', {
       method: 'POST',
       body: JSON.stringify({
-        filename: file.name,
-        contentType: file.type || 'application/octet-stream',
+        filename: fileToUpload.name,
+        contentType: fileToUpload.type || 'application/octet-stream',
         module,
         category,
         experience,
@@ -51,13 +60,13 @@ export const uploadFileToS3 = async (file, options = {}) => {
 
     const { presignedUrl, publicUrl, previewUrl, key } = presignedData;
 
-    // 2. Direct HTTP PUT upload from Browser directly to Amazon S3
+    // 3. Direct HTTP PUT upload from Browser directly to Amazon S3
     const uploadResponse = await fetch(presignedUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': file.type || 'application/octet-stream',
+        'Content-Type': fileToUpload.type || 'application/octet-stream',
       },
-      body: file,
+      body: fileToUpload,
     });
 
     if (!uploadResponse.ok) {
@@ -68,7 +77,7 @@ export const uploadFileToS3 = async (file, options = {}) => {
       publicUrl,
       previewUrl,
       key,
-      fileName: file.name,
+      fileName: fileToUpload.name,
     };
   } catch (err) {
     console.error('[UploadApi] Error during direct S3 upload:', err);
