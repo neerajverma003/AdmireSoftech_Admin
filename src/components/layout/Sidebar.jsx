@@ -18,6 +18,7 @@ import {
   Globe,
   Award,
   Sliders,
+  Send,
 } from 'lucide-react';
 import { useAdminData } from '../../context/AdminDataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -69,6 +70,18 @@ export default function Sidebar({
           icon: Sliders,
           badge: 'Form',
           badgeColor: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
+        },
+      ],
+    },
+    {
+      group: 'Connection',
+      items: [
+        {
+          name: 'Inbox',
+          path: '/outreach',
+          icon: Send,
+          badge: 'Outbox',
+          badgeColor: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30',
         },
       ],
     },

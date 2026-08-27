@@ -22,6 +22,7 @@ import SettingsPage from './pages/Settings/SettingsPage';
 import NotificationEmailsPage from './pages/Settings/NotificationEmailsPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import EstimatorBuilderPage from './pages/EstimatorBuilder/EstimatorBuilderPage';
+import OutreachPage from './pages/Outreach/OutreachPage';
 
 // Protected Route Guard
 const ProtectedRoute = ({ children }) => {
@@ -66,6 +67,7 @@ function App() {
                 <Route index element={<DashboardPage />} />
                 <Route path="inquiries" element={<InquiriesPage />} />
                 <Route path="quotes" element={<QuotesPage />} />
+                <Route path="outreach" element={<OutreachPage />} />
                 <Route path="estimator-builder" element={<EstimatorBuilderPage />} />
                 <Route path="quotes/customizer" element={<EstimatorBuilderPage />} />
                 <Route path="careers" element={<CareersPage />} />
