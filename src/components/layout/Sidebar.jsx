@@ -177,12 +177,12 @@ export default function Sidebar({
         }`}
       >
         {/* 1. Top Branding Area (Fixed Height, shrink-0) */}
-        <div className="h-16 shrink-0 relative flex items-center justify-center px-4 border-b border-slate-800/80 w-full overflow-hidden">
+        <div className="h-20 shrink-0 relative flex items-center justify-center px-4 border-b border-slate-800/80 w-full overflow-hidden">
           {/* Centered Logo */}
           <div className="w-full flex items-center justify-center">
             <Logo
               variant={isDesktopCollapsed ? 'icon' : 'full'}
-              size={isDesktopCollapsed ? 'sm' : 'md'}
+              size={isDesktopCollapsed ? 'md' : 'lg'}
             />
           </div>
 
@@ -203,7 +203,7 @@ export default function Sidebar({
           {navGroups.map((grp, idx) => (
             <div key={idx} className="space-y-1">
               {!isDesktopCollapsed && (
-                <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="px-3 text-[11px] font-extrabold uppercase tracking-widest text-slate-300 mb-1">
                   {grp.group}
                 </div>
               )}
@@ -217,14 +217,14 @@ export default function Sidebar({
                     to={item.path}
                     onClick={handleLinkClick}
                     title={isDesktopCollapsed ? item.name : ''}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200 group relative ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 group relative ${
                       isActive
-                        ? 'bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_-3px_rgba(0,242,254,0.15)] font-semibold'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
+                        ? 'bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_-3px_rgba(0,242,254,0.15)]'
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent'
                     } ${isDesktopCollapsed ? 'justify-center px-0' : ''}`}
                   >
                     <Icon
-                      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                      className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
                         isActive ? 'text-cyan-400 scale-110' : 'text-slate-400 group-hover:text-cyan-300'
                       }`}
                     />
@@ -234,7 +234,7 @@ export default function Sidebar({
                     )}
 
                     {!isDesktopCollapsed && item.badge && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${item.badgeColor}`}>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${item.badgeColor}`}>
                         {item.badge}
                       </span>
                     )}
@@ -276,10 +276,10 @@ export default function Sidebar({
               </div>
               {!isDesktopCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-200 truncate group-hover:text-cyan-300 transition-colors">
+                  <p className="text-sm font-bold text-slate-200 truncate group-hover:text-cyan-300 transition-colors">
                     {user?.name || 'Admin'}
                   </p>
-                  <p className="text-[10px] text-cyan-400 truncate capitalize">{user?.role || 'Admin'}</p>
+                  <p className="text-xs text-cyan-400 truncate capitalize">{user?.role || 'Admin'}</p>
                 </div>
               )}
             </NavLink>

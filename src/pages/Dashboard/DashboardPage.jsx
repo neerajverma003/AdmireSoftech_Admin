@@ -20,6 +20,7 @@ import { useAdminData } from '../../context/AdminDataContext';
 import { useAuth } from '../../context/AuthContext';
 import StatCard from '../../components/common/StatCard';
 import Badge from '../../components/common/Badge';
+import ClientDemandRingWidget from './ClientDemandRingWidget';
 
 export default function DashboardPage() {
   const { inquiries, quotes, jobs, applicants, services, team, stats } = useAdminData();
@@ -34,17 +35,6 @@ export default function DashboardPage() {
 
   const recentInquiries = inquiries.slice(0, 5);
   const recentQuotes = quotes.slice(0, 4);
-
-  // Group inquiries by service
-  const serviceDistribution = [
-    { name: 'Cloud & DevOps', count: inquiries.filter((i) => i.service?.toLowerCase().includes('cloud')).length, color: 'bg-cyan-400' },
-    { name: 'AI & Machine Learning', count: inquiries.filter((i) => i.service?.toLowerCase().includes('artificial') || i.service?.toLowerCase().includes('ai')).length, color: 'bg-purple-400' },
-    { name: 'Full-Stack Web/Mobile', count: inquiries.filter((i) => i.service?.toLowerCase().includes('full-stack') || i.service?.toLowerCase().includes('web') || i.service?.toLowerCase().includes('mobile')).length, color: 'bg-blue-400' },
-    { name: 'Cybersecurity & Compliance', count: inquiries.filter((i) => i.service?.toLowerCase().includes('cybersecurity')).length, color: 'bg-rose-400' },
-    { name: 'Data Engineering & BI', count: inquiries.filter((i) => i.service?.toLowerCase().includes('data')).length, color: 'bg-teal-400' },
-  ];
-
-  const totalServiceInquiries = serviceDistribution.reduce((acc, s) => acc + s.count, 0) || 1;
 
   return (
     <div className="space-y-8">
@@ -135,46 +125,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Inquiries by Service Distribution & Conversion */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-2xl bg-[#0b1329]/90 border border-slate-800/90 p-6 space-y-5 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-cyan-400" />
-                  Client Demand by Practice Area
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Real-time breakdown of project requests across services
-                </p>
-              </div>
-              <button
-                onClick={() => navigate('/services')}
-                className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <span>Services Catalog</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 pt-2">
-              {serviceDistribution.map((item) => {
-                const percentage = Math.round((item.count / totalServiceInquiries) * 100);
-                return (
-                  <div key={item.name} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-slate-300">{item.name}</span>
-                      <span className="text-slate-400 font-semibold">{percentage}% ({item.count} leads)</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-slate-800/80 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${item.color} transition-all duration-500`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {/* Interactive Multi-Ring Demand Telemetry Widget */}
+          <ClientDemandRingWidget />
 
           {/* Recent Inquiries Table */}
           <div className="rounded-2xl bg-[#0b1329]/90 border border-slate-800/90 p-6 space-y-4 shadow-xl">

@@ -10,10 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@visx/event": "^4.0.0",
+    "@visx/responsive": "^4.0.0",
+    "@visx/sankey": "^4.0.0",
+    "clsx": "^2.1.1",
+    "d3-sankey": "^0.12.3",
+    "framer-motion": "^13.1.1",
     "lucide-react": "^1.33.0",
+    "motion": "^13.1.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
