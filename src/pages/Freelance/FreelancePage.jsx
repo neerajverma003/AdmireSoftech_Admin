@@ -495,7 +495,7 @@ export default function FreelancePage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div data-lenis-prevent className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 sidebar-calm-scroll">
               {proposalsList.map((prop) => (
                 <div
                   key={prop.id || prop._id}

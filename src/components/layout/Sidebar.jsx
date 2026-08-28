@@ -254,6 +254,7 @@ export default function Sidebar({
         {/* 2. Navigation Group Items (GSAP Smooth Scrollable Middle Container) */}
         <div
           ref={containerRef}
+          data-lenis-prevent
           tabIndex={0}
           aria-label="Admin Navigation"
           className="flex-1 min-h-0 py-3 px-3 space-y-5 overflow-y-auto sidebar-calm-scroll select-none outline-none focus-visible:ring-1 focus-visible:ring-cyan-500/30"

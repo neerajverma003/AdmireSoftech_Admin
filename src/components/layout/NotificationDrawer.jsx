@@ -47,7 +47,7 @@ export default function NotificationDrawer({ isOpen, onClose }) {
           </div>
 
           {/* Drawer Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          <div data-lenis-prevent className="flex-1 overflow-y-auto p-4 space-y-6 sidebar-calm-scroll">
             {/* 1. New Inquiries Section */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-400">

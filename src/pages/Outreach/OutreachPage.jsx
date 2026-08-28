@@ -1721,7 +1721,7 @@ export default function OutreachPage() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar space-y-4 bg-[#070d1e]">
+            <div data-lenis-prevent className="p-6 overflow-y-auto sidebar-calm-scroll space-y-4 bg-[#070d1e]">
               <div className="bg-[#050916] p-4 rounded-xl border border-slate-800 text-xs space-y-1.5">
                 <div>
                   <strong className="text-slate-400">From:</strong> {fromName} &lt;{customFromEmail || defaultSenderEmail}&gt;
@@ -1834,7 +1834,7 @@ export default function OutreachPage() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar space-y-4 bg-[#070d1e]">
+            <div data-lenis-prevent className="p-6 overflow-y-auto sidebar-calm-scroll space-y-4 bg-[#070d1e]">
               <div className="bg-[#050916] p-4 rounded-xl border border-slate-800 text-xs space-y-1.5">
                 <div>
                   <strong className="text-slate-400">Status:</strong>{' '}
@@ -1954,7 +1954,7 @@ export default function OutreachPage() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar space-y-6 bg-[#070d1e]">
+            <div data-lenis-prevent className="p-6 overflow-y-auto sidebar-calm-scroll space-y-6 bg-[#070d1e]">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">

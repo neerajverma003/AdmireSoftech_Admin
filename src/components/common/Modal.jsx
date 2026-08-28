@@ -51,7 +51,7 @@ export default function Modal({
         </div>
 
         {/* Body Content */}
-        <div className="max-h-[75vh] overflow-y-auto pr-1">
+        <div data-lenis-prevent className="max-h-[75vh] overflow-y-auto pr-1 sidebar-calm-scroll">
           {children}
         </div>
       </div>

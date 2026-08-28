@@ -472,7 +472,7 @@ export default function NotificationEmailsPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#070d1e]">
+                    <div data-lenis-prevent className="overflow-x-auto sidebar-calm-scroll rounded-xl border border-slate-800/90 bg-[#070d1e]">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="border-b border-slate-800 text-[10px] uppercase font-bold tracking-wider text-slate-400 bg-slate-900/60">

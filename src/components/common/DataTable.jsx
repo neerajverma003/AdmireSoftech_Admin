@@ -176,7 +176,7 @@ export default function DataTable({
 
       {/* Main Table Container */}
       <div className="overflow-hidden rounded-2xl bg-[#0b1329]/90 border border-slate-800/90 shadow-xl">
-        <div className="overflow-x-auto">
+        <div data-lenis-prevent className="overflow-x-auto sidebar-calm-scroll">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-[#0e1738] text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
               <tr>

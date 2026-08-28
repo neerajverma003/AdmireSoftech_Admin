@@ -979,7 +979,7 @@ export default function EstimatorBuilderPage() {
 
               {/* Preview Step 1: Services */}
               {previewStep === 1 && (
-                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                <div data-lenis-prevent className="space-y-2 max-h-[340px] overflow-y-auto pr-1 sidebar-calm-scroll">
                   {config.services
                     ?.filter((s) => s.isEnabled)
                     .map((svc, idx) => {
@@ -1009,7 +1009,7 @@ export default function EstimatorBuilderPage() {
 
               {/* Preview Step 2: Scopes & Timelines */}
               {previewStep === 2 && (
-                <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+                <div data-lenis-prevent className="space-y-4 max-h-[380px] overflow-y-auto pr-1 sidebar-calm-scroll">
                   {/* Scopes */}
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-slate-300">Select Scope & Estimated Budget</p>

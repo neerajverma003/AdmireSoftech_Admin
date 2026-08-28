@@ -617,7 +617,7 @@ export default function IndustriesPage() {
               <span>Category Icon</span>
               <span className="text-slate-500 font-normal">(Selected: {formData.icon})</span>
             </label>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 max-h-36 overflow-y-auto p-2 rounded-xl bg-[#070c1e] border border-slate-800 custom-scrollbar">
+            <div data-lenis-prevent className="grid grid-cols-4 sm:grid-cols-8 gap-2 max-h-36 overflow-y-auto p-2 rounded-xl bg-[#070c1e] border border-slate-800 sidebar-calm-scroll">
               {AVAILABLE_ICONS.map((ico) => {
                 const IconComp = ico.icon;
                 const isSelected = formData.icon === ico.name;
