@@ -699,7 +699,7 @@ export default function OutreachPage() {
 
       if (res && res.success) {
         showToast({
-          title: 'Email Sent Successfully! 🚀',
+          title: 'Email Sent Successfully! ',
           message: res.message || `Outreach email delivered to ${toInput}`,
           type: 'success',
         });
@@ -1376,39 +1376,9 @@ export default function OutreachPage() {
             )}
           </div>
 
-          {/* Character / Word count footer bar (Modern UI style) */}
+          {/* Character / Word count footer bar */}
           <div className="px-5 py-2.5 bg-[#080e1c] border-t border-slate-700/60 flex items-center justify-between text-[12px] text-slate-400 font-mono select-none">
             <span className="tracking-tight">{charCount} characters &nbsp; {wordCount} words</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                title="Download / Export HTML"
-                onClick={() => {
-                  if (!editorRef.current) return;
-                  const blob = new Blob([editorRef.current.innerHTML], { type: 'text/html' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${subject ? subject.replace(/[^a-z0-9]/gi, '_') : 'outreach-email'}.html`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                  showToast('Exported email content as HTML!', 'success');
-                }}
-                className="p-1.5 hover:bg-slate-800 rounded-md hover:text-cyan-400 text-slate-400 transition-colors cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                title="More options"
-                onClick={() => {
-                  showToast('RichTextEditor powered by Tiptap & Modern UI format standard', 'info');
-                }}
-                className="p-1.5 hover:bg-slate-800 rounded-md hover:text-cyan-400 text-slate-400 transition-colors cursor-pointer"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-            </div>
           </div>
 
           {/* Attachments Section */}
@@ -1791,11 +1761,18 @@ export default function OutreachPage() {
                   <div className="max-w-[600px] mx-auto bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-slate-900">
                     {/* Header Logo Centered */}
                     <div className="p-6 bg-[#070d1e] border-b-2 border-cyan-400 flex justify-center items-center text-center">
-                      <img
-                        src="https://media.admiresoftech.com/emails/assets/logo.png"
-                        alt="Admire Softech"
-                        className="h-10 w-auto object-contain mx-auto"
-                      />
+                      <a
+                        href="https://admiresoftech.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block transition-opacity hover:opacity-90"
+                      >
+                        <img
+                          src="https://media.admiresoftech.com/emails/assets/logo.png"
+                          alt="Admire Softech"
+                          className="h-10 w-auto object-contain mx-auto cursor-pointer"
+                        />
+                      </a>
                     </div>
 
                     {/* Body Content */}
@@ -1809,7 +1786,14 @@ export default function OutreachPage() {
                     {/* Footer */}
                     <div className="p-5 bg-slate-50 border-t border-slate-100 text-center">
                       <p className="font-bold text-xs text-slate-900 mb-1">
-                        Admire Softech Solution Pvt. Ltd
+                        <a
+                          href="https://admiresoftech.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-cyan-600 transition-colors"
+                        >
+                          Admire Softech Solution Pvt. Ltd
+                        </a>
                       </p>
                       <p className="text-[11px] text-slate-500">
                         Admire Softech Solution Pvt. Ltd &bull; Premium IT, Web Engineering &amp; Software Solutions
@@ -1893,11 +1877,18 @@ export default function OutreachPage() {
                 <div className="bg-[#f8fafc] border border-slate-700/80 p-4 sm:p-6 rounded-xl overflow-x-auto">
                   <div className="max-w-[620px] mx-auto bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-slate-800">
                     <div className="p-6 bg-[#070d1e] border-b-2 border-cyan-400 flex justify-center items-center text-center">
-                      <img
-                        src="https://media.admiresoftech.com/emails/assets/logo.png"
-                        alt="Admire Softech"
-                        className="h-10 w-auto object-contain mx-auto"
-                      />
+                      <a
+                        href="https://admiresoftech.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block transition-opacity hover:opacity-90"
+                      >
+                        <img
+                          src="https://media.admiresoftech.com/emails/assets/logo.png"
+                          alt="Admire Softech"
+                          className="h-10 w-auto object-contain mx-auto cursor-pointer"
+                        />
+                      </a>
                     </div>
                     <div
                       className="p-8 text-slate-700 text-sm leading-relaxed prose max-w-none"
@@ -1906,7 +1897,15 @@ export default function OutreachPage() {
                       }}
                     />
                     <div className="p-4 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500">
-                      Admire Softech Solution Pvt. Ltd &bull; Premium IT, Web Engineering &amp; Software Solutions
+                      <a
+                        href="https://admiresoftech.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-cyan-600 transition-colors font-medium text-slate-700"
+                      >
+                        Admire Softech Solution Pvt. Ltd
+                      </a>
+                      {' '}&bull; Premium IT, Web Engineering &amp; Software Solutions
                     </div>
                   </div>
                 </div>
