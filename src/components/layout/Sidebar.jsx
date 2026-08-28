@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import gsap from 'gsap';
 import {
   LayoutDashboard,
   Inbox,
@@ -23,6 +24,7 @@ import {
 import { useAdminData } from '../../context/AdminDataContext';
 import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
+import { useGsapSmoothScroll } from '../../hooks/useGsapSmoothScroll';
 
 export default function Sidebar({
   isCollapsed,
@@ -30,11 +32,49 @@ export default function Sidebar({
   isMobileOpen,
   setIsMobileOpen,
 }) {
-  const { summaryCounts, settings } = useAdminData();
+  const { summaryCounts } = useAdminData();
   const { user, logout } = useAuth();
   const location = useLocation();
 
   const isDesktopCollapsed = isCollapsed && !isMobileOpen;
+
+  // 1. Hook up GSAP smooth inertial scroll on the sidebar navigation container
+  const { containerRef, scrollToElement } = useGsapSmoothScroll({
+    speed: 1.0,
+    smoothness: 0.85,
+    ease: 'power3.out',
+  });
+
+  const navListRef = useRef(null);
+
+  // 2. Smoothly scroll active navigation item into view when route changes
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const activeEl = containerRef.current.querySelector('.active-sidebar-nav-item');
+    if (activeEl) {
+      scrollToElement(activeEl, { duration: 0.75 });
+    }
+  }, [location.pathname, scrollToElement, containerRef]);
+
+  // 3. GSAP stagger entrance animation on mount / expansion
+  useEffect(() => {
+    if (!navListRef.current) return;
+    const items = navListRef.current.querySelectorAll('.gsap-nav-group');
+    if (items.length > 0) {
+      gsap.fromTo(
+        items,
+        { opacity: 0, y: 12 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.45,
+          stagger: 0.04,
+          ease: 'power2.out',
+          clearProps: 'transform,opacity',
+        }
+      );
+    }
+  }, [isDesktopCollapsed]);
 
   const navGroups = [
     {
@@ -211,63 +251,78 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* 2. Navigation Group Items (Scrollable middle, flex-1 min-h-0) */}
-        <div className="flex-1 min-h-0 py-3 px-3 space-y-5 overflow-y-auto custom-scrollbar">
-          {navGroups.map((grp, idx) => (
-            <div key={idx} className="space-y-1">
-              {!isDesktopCollapsed && (
-                <div className="px-3 text-[11px] font-extrabold uppercase tracking-widest text-slate-300 mb-1">
-                  {grp.group}
-                </div>
-              )}
-              {grp.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
+        {/* 2. Navigation Group Items (GSAP Smooth Scrollable Middle Container) */}
+        <div
+          ref={containerRef}
+          tabIndex={0}
+          aria-label="Admin Navigation"
+          className="flex-1 min-h-0 py-3 px-3 space-y-5 overflow-y-auto sidebar-calm-scroll select-none outline-none focus-visible:ring-1 focus-visible:ring-cyan-500/30"
+        >
+          <div ref={navListRef} className="space-y-5">
+            {navGroups.map((grp, idx) => (
+              <div key={idx} className="space-y-1 gsap-nav-group">
+                {!isDesktopCollapsed && (
+                  <div className="px-3 text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">
+                    {grp.group}
+                  </div>
+                )}
+                {grp.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
 
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={handleLinkClick}
-                    title={isDesktopCollapsed ? item.name : ''}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 group relative ${
-                      isActive
-                        ? 'bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_-3px_rgba(0,242,254,0.15)]'
-                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent'
-                    } ${isDesktopCollapsed ? 'justify-center px-0' : ''}`}
-                  >
-                    <Icon
-                      className={`w-5 h-5 shrink-0 transition-transform duration-200 ${
-                        isActive ? 'text-cyan-400 scale-110' : 'text-slate-400 group-hover:text-cyan-300'
-                      }`}
-                    />
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={handleLinkClick}
+                      title={isDesktopCollapsed ? item.name : ''}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 group relative ${
+                        isActive
+                          ? 'active-sidebar-nav-item bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_-3px_rgba(0,242,254,0.15)]'
+                          : 'text-slate-300 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent'
+                      } ${isDesktopCollapsed ? 'justify-center px-0' : ''}`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 shrink-0 transition-all duration-300 ${
+                          isActive
+                            ? 'text-cyan-400 scale-110'
+                            : 'text-slate-400 group-hover:text-cyan-300 group-hover:scale-105'
+                        }`}
+                      />
 
-                    {!isDesktopCollapsed && (
-                      <span className="truncate flex-1">{item.name}</span>
-                    )}
+                      {!isDesktopCollapsed && (
+                        <span className="truncate flex-1 transition-colors duration-200">
+                          {item.name}
+                        </span>
+                      )}
 
-                    {!isDesktopCollapsed && item.badge && (
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${item.badgeColor}`}>
-                        {item.badge}
-                      </span>
-                    )}
+                      {!isDesktopCollapsed && item.badge && (
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold transition-all duration-200 ${item.badgeColor}`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
 
-                    {isDesktopCollapsed && item.badge && (
-                      <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                    )}
-                  </NavLink>
-                );
-              })}
-            </div>
-          ))}
+                      {isDesktopCollapsed && item.badge && (
+                        <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* 3. Bottom Controls & User Area (Always Pinned & Visible, shrink-0) */}
         <div className="shrink-0 p-3 border-t border-slate-800/80 bg-[#060b18]/95 space-y-2">
           {/* User profile card linking to /profile */}
-          <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-cyan-500/40 transition-all ${
-            isDesktopCollapsed ? 'justify-center' : ''
-          }`}>
+          <div
+            className={`flex items-center gap-3 p-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-cyan-500/40 transition-all ${
+              isDesktopCollapsed ? 'justify-center' : ''
+            }`}
+          >
             <NavLink
               to="/profile"
               onClick={handleLinkClick}
@@ -292,7 +347,9 @@ export default function Sidebar({
                   <p className="text-sm font-bold text-slate-200 truncate group-hover:text-cyan-300 transition-colors">
                     {user?.name || 'Admin'}
                   </p>
-                  <p className="text-xs text-cyan-400 truncate capitalize">{user?.role || 'Admin'}</p>
+                  <p className="text-xs text-cyan-400 truncate capitalize">
+                    {user?.role || 'Admin'}
+                  </p>
                 </div>
               )}
             </NavLink>
@@ -312,3 +369,4 @@ export default function Sidebar({
     </>
   );
 }
+
