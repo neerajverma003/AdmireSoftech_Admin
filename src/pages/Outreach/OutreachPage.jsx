@@ -48,6 +48,9 @@ import {
   EyeOff,
   Layout,
   Layers,
+  Save,
+  Bookmark,
+  Edit3,
 } from 'lucide-react';
 import {
   fetchOutreachHistory,
@@ -57,6 +60,9 @@ import {
   createSenderAccount,
   deleteSenderAccount,
   setDefaultSenderAccount,
+  fetchOutreachDrafts,
+  saveOutreachDraft,
+  deleteOutreachDraft,
 } from '../../api/outreachApi';
 import { uploadFileToS3 } from '../../api/uploadApi';
 import { convertImageToWebP } from '../../utils/imageConverter';
@@ -65,7 +71,7 @@ import { useToast } from '../../context/ToastContext';
 export default function OutreachPage() {
   const { showToast } = useToast();
 
-  // Active Tab: 'compose' or 'history'
+  // Active Tab: 'compose' | 'drafts' | 'history'
   const [activeTab, setActiveTab] = useState('compose');
 
   // Multi-Sender Accounts state
@@ -99,6 +105,12 @@ export default function OutreachPage() {
 
   // Attachments: [{ id, name, size, type, content (base64) }]
   const [attachments, setAttachments] = useState([]);
+
+  // Drafts state
+  const [drafts, setDrafts] = useState([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  const [activeDraftId, setActiveDraftId] = useState(null);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   // Live preview toggle
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -156,13 +168,29 @@ export default function OutreachPage() {
     }
   }, []);
 
-  // Fetch email history & default sender from backend
+  // Fetch saved drafts list
+  const fetchDrafts = useCallback(async () => {
+    try {
+      setDraftsLoading(true);
+      const res = await fetchOutreachDrafts();
+      if (res && res.success) {
+        setDrafts(res.drafts || []);
+      }
+    } catch (err) {
+      console.warn('Could not load email drafts:', err.message);
+    } finally {
+      setDraftsLoading(false);
+    }
+  }, []);
+
+  // Fetch email history, drafts & default sender from backend
   const fetchHistory = useCallback(async () => {
     try {
       setLogsLoading(true);
       const [historyRes] = await Promise.allSettled([
         fetchOutreachHistory(),
         loadSenders(),
+        fetchDrafts(),
       ]);
 
       if (historyRes.status === 'fulfilled' && historyRes.value) {
@@ -179,7 +207,7 @@ export default function OutreachPage() {
     } finally {
       setLogsLoading(false);
     }
-  }, [loadSenders]);
+  }, [loadSenders, fetchDrafts]);
 
   useEffect(() => {
     fetchHistory();
@@ -472,9 +500,143 @@ export default function OutreachPage() {
       setBccInput('');
       setSubject('');
       setAttachments([]);
+      setActiveDraftId(null);
       if (editorRef.current) {
         editorRef.current.innerHTML = '';
       }
+      updateWordCount();
+    }
+  };
+
+  // Save current email as draft
+  const handleSaveDraft = async () => {
+    const editorContent = editorRef.current ? editorRef.current.innerHTML.trim() : '';
+    const textOnly = editorRef.current ? editorRef.current.innerText.trim() : '';
+
+    if (!toInput.trim() && !subject.trim() && !textOnly && !editorContent && attachments.length === 0) {
+      showToast({
+        title: 'Empty Draft',
+        message: 'Please write a subject, recipient, or message body before saving draft.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    try {
+      setSavingDraft(true);
+
+      const draftPayload = {
+        draftId: activeDraftId || undefined,
+        to: toInput,
+        cc: ccInput,
+        bcc: bccInput,
+        subject: subject.trim(),
+        fromName: fromName.trim(),
+        fromEmail: (customFromEmail || defaultSenderEmail).trim(),
+        htmlContent: editorContent,
+        emailFormat: emailFormat,
+        attachments: attachments.map((att) => ({
+          filename: att.filename,
+          contentType: att.contentType,
+          size: att.size,
+          content: att.content,
+        })),
+      };
+
+      const res = await saveOutreachDraft(draftPayload);
+
+      if (res && res.success) {
+        if (res.draft?._id) {
+          setActiveDraftId(res.draft._id);
+        }
+        showToast({
+          title: 'Draft Saved! 💾',
+          message: 'Your email draft has been saved. You can finish and send it later.',
+          type: 'success',
+        });
+        await fetchDrafts();
+      }
+    } catch (err) {
+      console.error('Error saving draft:', err);
+      showToast({
+        title: 'Draft Save Failed',
+        message: err.message || 'Could not save draft.',
+        type: 'error',
+      });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  // Load a saved draft into composer
+  const handleResumeDraft = (draft) => {
+    if (!draft) return;
+    setActiveDraftId(draft._id);
+    setToInput(Array.isArray(draft.to) ? draft.to.join(', ') : draft.to || '');
+    setCcInput(Array.isArray(draft.cc) ? draft.cc.join(', ') : draft.cc || '');
+    setBccInput(Array.isArray(draft.bcc) ? draft.bcc.join(', ') : draft.bcc || '');
+    if ((draft.cc && draft.cc.length > 0) || (draft.bcc && draft.bcc.length > 0)) {
+      setShowCcBcc(true);
+    }
+    setSubject(draft.subject || '');
+    setFromName(draft.fromName || 'Admire Softech');
+    if (draft.fromEmail) {
+      setCustomFromEmail(draft.fromEmail);
+    }
+    setEmailFormat(draft.emailFormat || 'normal');
+    setAttachments(
+      (draft.attachments || []).map((att, idx) => ({
+        id: att._id || `draft_att_${idx}_${Date.now()}`,
+        filename: att.filename,
+        contentType: att.contentType,
+        size: att.size,
+        content: att.content,
+      }))
+    );
+
+    setActiveTab('compose');
+
+    const draftHtml = draft.htmlContent || '';
+    if (editorRef.current) {
+      editorRef.current.innerHTML = draftHtml;
+      updateWordCount();
+    }
+
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.innerHTML = draftHtml;
+        updateWordCount();
+      }
+    }, 50);
+
+    showToast({
+      title: 'Draft Loaded',
+      message: 'Draft loaded into composer. You can now edit and send.',
+      type: 'info',
+    });
+  };
+
+  // Delete a saved draft
+  const handleDeleteDraft = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this draft?')) return;
+    try {
+      await deleteOutreachDraft(id);
+      setDrafts((prev) => prev.filter((d) => d._id !== id));
+      if (activeDraftId === id) {
+        setActiveDraftId(null);
+      }
+      showToast({
+        title: 'Draft Removed',
+        message: 'Draft email deleted.',
+        type: 'success',
+      });
+    } catch (err) {
+      console.error('Error deleting draft:', err);
+      showToast({
+        title: 'Delete Failed',
+        message: err.message || 'Could not delete draft.',
+        type: 'error',
+      });
     }
   };
 
@@ -516,6 +678,7 @@ export default function OutreachPage() {
       setSending(true);
 
       const payload = {
+        draftId: activeDraftId || undefined,
         to: toInput,
         cc: ccInput,
         bcc: bccInput,
@@ -546,6 +709,12 @@ export default function OutreachPage() {
           setLogs((prev) => [res.record, ...prev.filter((l) => l._id !== res.record._id)]);
         }
 
+        // If sent from an active draft, remove it from drafts list
+        if (activeDraftId) {
+          setDrafts((prev) => prev.filter((d) => d._id !== activeDraftId));
+          setActiveDraftId(null);
+        }
+
         // Reset form
         setToInput('');
         setCcInput('');
@@ -555,6 +724,7 @@ export default function OutreachPage() {
         if (editorRef.current) {
           editorRef.current.innerHTML = '';
         }
+        updateWordCount();
       }
     } catch (err) {
       console.error('Error sending email:', err);
@@ -625,6 +795,20 @@ export default function OutreachPage() {
           </button>
           <button
             onClick={() => {
+              setActiveTab('drafts');
+              fetchDrafts();
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'drafts'
+                ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Bookmark className="w-3.5 h-3.5" />
+            <span>Drafts ({drafts.length})</span>
+          </button>
+          <button
+            onClick={() => {
               setActiveTab('history');
               fetchHistory();
             }}
@@ -640,10 +824,12 @@ export default function OutreachPage() {
         </div>
       </div>
 
-      {activeTab === 'compose' ? (
-        /* Compose Box (Gmail Style) */
-        <div className="rounded-2xl border border-slate-800/90 bg-[#091124] shadow-2xl overflow-hidden flex flex-col">
-          {/* Top Window Header */}
+      {/* 1. Compose Box (Gmail Style) */}
+      <div
+        style={{ display: activeTab === 'compose' ? 'flex' : 'none' }}
+        className="rounded-2xl border border-slate-800/90 bg-[#091124] shadow-2xl overflow-hidden flex-col"
+      >
+        {/* Top Window Header */}
           <div className="px-5 py-3.5 bg-[#060b18] border-b border-slate-800/90 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block"></span>
@@ -652,6 +838,11 @@ export default function OutreachPage() {
               <span className="text-xs font-bold text-slate-300 ml-2">
                 New Message &bull; IT Proposal &amp; Outreach
               </span>
+              {activeDraftId && (
+                <span className="ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                  <Bookmark className="w-2.5 h-2.5" /> Editing Saved Draft
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2 text-xs">
@@ -1252,9 +1443,9 @@ export default function OutreachPage() {
             </div>
           )}
 
-          {/* Footer Action Bar (Send, Attach File, Reset) */}
+          {/* Footer Action Bar (Send, Save Draft, Attach File, Reset) */}
           <div className="p-4 bg-[#050914] border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               {/* Send Button */}
               <button
                 type="button"
@@ -1271,6 +1462,27 @@ export default function OutreachPage() {
                   <>
                     <Send className="w-4 h-4 text-slate-950" />
                     <span>Send Message</span>
+                  </>
+                )}
+              </button>
+
+              {/* Save Draft Button */}
+              <button
+                type="button"
+                disabled={savingDraft || sending}
+                onClick={handleSaveDraft}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 text-cyan-300 hover:text-cyan-200 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+                title="Save as Draft to edit and send later"
+              >
+                {savingDraft ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Save Draft</span>
                   </>
                 )}
               </button>
@@ -1306,8 +1518,113 @@ export default function OutreachPage() {
             </div>
           </div>
         </div>
-      ) : (
-        /* Sent History View */
+
+      {/* 2. Drafts View Tab */}
+      {activeTab === 'drafts' && (
+        <div className="rounded-2xl border border-slate-800/90 bg-[#091124] shadow-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <Bookmark className="w-4 h-4 text-cyan-400" />
+              <span>Saved Email Drafts ({drafts.length})</span>
+            </h3>
+            <button
+              onClick={fetchDrafts}
+              disabled={draftsLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-all cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${draftsLoading ? 'animate-spin text-cyan-400' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          {drafts.length === 0 ? (
+            <div className="text-center py-12 rounded-xl border border-dashed border-slate-800 bg-slate-900/20">
+              <Bookmark className="w-10 h-10 text-slate-600 mx-auto mb-2 opacity-60" />
+              <p className="text-xs text-slate-400 font-medium">No saved email drafts yet.</p>
+              <p className="text-[11px] text-slate-500 mt-1">
+                You can save in-progress emails from the Compose tab and resume editing them here.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#070d1e]">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] uppercase font-bold tracking-wider text-slate-400 bg-slate-900/60">
+                    <th className="py-3 px-4">Last Modified</th>
+                    <th className="py-3 px-4">Recipient(s)</th>
+                    <th className="py-3 px-4">Subject</th>
+                    <th className="py-3 px-4 text-center">Style</th>
+                    <th className="py-3 px-4 text-center">Attachments</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {drafts.map((draft) => (
+                    <tr key={draft._id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">
+                        {new Date(draft.updatedAt || draft.createdAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-slate-200">
+                        {Array.isArray(draft.to) && draft.to.length > 0
+                          ? draft.to.join(', ')
+                          : typeof draft.to === 'string' && draft.to
+                            ? draft.to
+                            : <span className="text-slate-500 italic">(No recipient)</span>}
+                      </td>
+                      <td className="py-3 px-4 text-slate-300 max-w-[220px] truncate">
+                        {draft.subject ? draft.subject : <span className="text-slate-500 italic">(No subject)</span>}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {draft.emailFormat === 'template' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                            <Layout className="w-2.5 h-2.5" /> Template
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                            <Mail className="w-2.5 h-2.5" /> Normal
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center text-slate-400">
+                        {draft.attachments && draft.attachments.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-400">
+                            <Paperclip className="w-3 h-3" />
+                            {draft.attachments.length}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleResumeDraft(draft)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-bold transition-all cursor-pointer shadow-sm"
+                          title="Resume editing in composer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Resume</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDraft(draft._id)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer inline-flex items-center"
+                          title="Delete Draft"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. Sent History View Tab */}
+      {activeTab === 'history' && (
         <div className="rounded-2xl border border-slate-800/90 bg-[#091124] shadow-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">

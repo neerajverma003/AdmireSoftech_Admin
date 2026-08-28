@@ -103,3 +103,48 @@ export const setDefaultSenderAccount = async (id) => {
   }
 };
 
+/**
+ * Fetch all saved email drafts
+ */
+export const fetchOutreachDrafts = async () => {
+  try {
+    const res = await apiRequest('/outreach/drafts');
+    return res;
+  } catch (err) {
+    console.warn('[OutreachApi] Error fetching drafts:', err.message);
+    throw err;
+  }
+};
+
+/**
+ * Save / Update an email draft
+ */
+export const saveOutreachDraft = async (draftData) => {
+  try {
+    const res = await apiRequest('/outreach/drafts', {
+      method: 'POST',
+      body: JSON.stringify(draftData),
+    });
+    return res;
+  } catch (err) {
+    console.error('[OutreachApi] Error saving draft:', err);
+    throw err;
+  }
+};
+
+/**
+ * Delete an email draft
+ */
+export const deleteOutreachDraft = async (id) => {
+  try {
+    const res = await apiRequest(`/outreach/drafts/${id}`, {
+      method: 'DELETE',
+    });
+    return res;
+  } catch (err) {
+    console.error('[OutreachApi] Error deleting draft:', err);
+    throw err;
+  }
+};
+
+
